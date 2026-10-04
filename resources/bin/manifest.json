@@ -1,0 +1,420 @@
+{
+  "schema": 1,
+  "tools": [
+    {
+      "id": "mkfs.erofs",
+      "file": "mkfs.erofs",
+      "kind": "native",
+      "version": "1.8.10-gee46dd74 (sekaiacg 251217)",
+      "license": "GPL-2.0-or-later",
+      "project": "https://github.com/sekaiacg/erofs-tools",
+      "neededFor": "M3 (repack erofs)",
+      "probe": {
+        "args": ["--version"],
+        "match": "mkfs\\.erofs \\(erofs-utils\\) (\\S+)"
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Darwin_aarch64.zip",
+          "sha256": "fde25ba470144fff2b7338a5bbf49abc1b9b9aee04c701d1f1dcc1826500a3ca",
+          "archive": "zip",
+          "member": "mkfs.erofs"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Darwin_x86_64.zip",
+          "sha256": "af0cc7beade7c4043d44d9e0752e8d6c0aca6ca6eb98b4265ed2d06820a1d9ce",
+          "archive": "zip",
+          "member": "mkfs.erofs"
+        },
+        "linux-x64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Linux_x86_64.zip",
+          "sha256": "6d6c6b0e7ad7273cc019644e5d6ad1e263142fad72874e169cc0731854f95bf1",
+          "archive": "zip",
+          "member": "mkfs.erofs"
+        }
+      }
+    },
+    {
+      "id": "extract.erofs",
+      "file": "extract.erofs",
+      "kind": "native",
+      "version": "1.8.10-gee46dd74 (sekaiacg 251217)",
+      "license": "GPL-2.0-or-later",
+      "project": "https://github.com/sekaiacg/erofs-tools",
+      "neededFor": "M2 (unpack erofs)",
+      "probe": {
+        "args": ["--version"],
+        "match": "extract\\.erofs:\\s+(\\S+)"
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Darwin_aarch64.zip",
+          "sha256": "fde25ba470144fff2b7338a5bbf49abc1b9b9aee04c701d1f1dcc1826500a3ca",
+          "archive": "zip",
+          "member": "extract.erofs"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Darwin_x86_64.zip",
+          "sha256": "af0cc7beade7c4043d44d9e0752e8d6c0aca6ca6eb98b4265ed2d06820a1d9ce",
+          "archive": "zip",
+          "member": "extract.erofs"
+        },
+        "linux-x64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Linux_x86_64.zip",
+          "sha256": "6d6c6b0e7ad7273cc019644e5d6ad1e263142fad72874e169cc0731854f95bf1",
+          "archive": "zip",
+          "member": "extract.erofs"
+        }
+      }
+    },
+    {
+      "id": "fsck.erofs",
+      "file": "fsck.erofs",
+      "kind": "native",
+      "version": "1.8.10-gee46dd74 (sekaiacg 251217)",
+      "license": "GPL-2.0-or-later",
+      "project": "https://github.com/sekaiacg/erofs-tools",
+      "neededFor": "M3 (verify images)",
+      "probe": {
+        "args": ["--version"],
+        "match": "fsck\\.erofs \\(erofs-utils\\) (\\S+)"
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Darwin_aarch64.zip",
+          "sha256": "fde25ba470144fff2b7338a5bbf49abc1b9b9aee04c701d1f1dcc1826500a3ca",
+          "archive": "zip",
+          "member": "fsck.erofs"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Darwin_x86_64.zip",
+          "sha256": "af0cc7beade7c4043d44d9e0752e8d6c0aca6ca6eb98b4265ed2d06820a1d9ce",
+          "archive": "zip",
+          "member": "fsck.erofs"
+        },
+        "linux-x64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Linux_x86_64.zip",
+          "sha256": "6d6c6b0e7ad7273cc019644e5d6ad1e263142fad72874e169cc0731854f95bf1",
+          "archive": "zip",
+          "member": "fsck.erofs"
+        }
+      }
+    },
+    {
+      "id": "dump.erofs",
+      "file": "dump.erofs",
+      "kind": "native",
+      "version": "1.8.10-gee46dd74 (sekaiacg 251217)",
+      "license": "GPL-2.0-or-later",
+      "project": "https://github.com/sekaiacg/erofs-tools",
+      "neededFor": "M2 (inspect erofs)",
+      "probe": {
+        "args": ["--version"],
+        "match": "dump\\.erofs \\(erofs-utils\\) (\\S+)"
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Darwin_aarch64.zip",
+          "sha256": "fde25ba470144fff2b7338a5bbf49abc1b9b9aee04c701d1f1dcc1826500a3ca",
+          "archive": "zip",
+          "member": "dump.erofs"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Darwin_x86_64.zip",
+          "sha256": "af0cc7beade7c4043d44d9e0752e8d6c0aca6ca6eb98b4265ed2d06820a1d9ce",
+          "archive": "zip",
+          "member": "dump.erofs"
+        },
+        "linux-x64": {
+          "url": "https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Linux_x86_64.zip",
+          "sha256": "6d6c6b0e7ad7273cc019644e5d6ad1e263142fad72874e169cc0731854f95bf1",
+          "archive": "zip",
+          "member": "dump.erofs"
+        }
+      }
+    },
+    {
+      "id": "payload-dumper-go",
+      "file": "payload-dumper-go",
+      "kind": "native",
+      "version": "2.1.0",
+      "license": "Apache-2.0",
+      "project": "https://github.com/ssut/payload-dumper-go",
+      "neededFor": "M2 (OTA payload.bin)",
+      "probe": {
+        "args": ["-h"],
+        "match": "Usage of"
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://github.com/ssut/payload-dumper-go/releases/download/2.1.0/payload-dumper-go_2.1.0_darwin_arm64.tar.gz",
+          "sha256": "7f78ac6fe7f449c309ac82d85fa2303bb045fa729e0e975e3257c2ce4044715b",
+          "archive": "tar.gz",
+          "member": "payload-dumper-go"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/ssut/payload-dumper-go/releases/download/2.1.0/payload-dumper-go_2.1.0_darwin_amd64.tar.gz",
+          "sha256": "c51f7d9c4a85ce38c3062e03cb9129a737b826c1b8a8080834bf7fcbd26d03ea",
+          "archive": "tar.gz",
+          "member": "payload-dumper-go"
+        },
+        "linux-x64": {
+          "url": "https://github.com/ssut/payload-dumper-go/releases/download/2.1.0/payload-dumper-go_2.1.0_linux_amd64.tar.gz",
+          "sha256": "bbbb53a71955c69272afdef7bc7e83a1bb1770f453d0c21dcaf61a3ba0463c11",
+          "archive": "tar.gz",
+          "member": "payload-dumper-go"
+        }
+      }
+    },
+    {
+      "id": "lpmake",
+      "file": "lpmake",
+      "kind": "native",
+      "version": "MIO-KITCHEN-SOURCE @0e54dcd",
+      "license": "Apache-2.0",
+      "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
+      "neededFor": "M3 (super.img)",
+      "probe": {
+        "args": ["--help"],
+        "match": "Logical Partition"
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/arm64/lpmake",
+          "sha256": "5e89757bcd71e34dbcc51b51a8942089d8185af91fbaa9b7b13f279040ed7d89",
+          "archive": "raw"
+        },
+        "darwin-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/x86_64/lpmake",
+          "sha256": "d1f7b9289bb1616dd018d5dc5d491361aadef79831a848356839850d29ec0c38",
+          "archive": "raw"
+        },
+        "linux-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Linux/x86_64/lpmake",
+          "sha256": "4b7e806742d34f764ade5b86d34df505e830619f4a96c64f135767c25b02970b",
+          "archive": "raw"
+        }
+      }
+    },
+    {
+      "id": "mke2fs",
+      "file": "mke2fs",
+      "kind": "native",
+      "version": "MIO-KITCHEN-SOURCE @0e54dcd",
+      "license": "GPL-2.0",
+      "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
+      "neededFor": "M3 (ext4 repack)",
+      "probe": {
+        "args": ["-V"],
+        "match": "mke2fs (\\S+) \\("
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/arm64/mke2fs",
+          "sha256": "4df1120767019e9c613850f6278a9ec65617f2b9bb922d893186b414528c4870",
+          "archive": "raw"
+        },
+        "darwin-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/x86_64/mke2fs",
+          "sha256": "0c569983de800435dd2c24a5154a815cd6a8eb0c7fdde1b391b518692fa43113",
+          "archive": "raw"
+        },
+        "linux-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Linux/x86_64/mke2fs",
+          "sha256": "d96fdbf9b828d5e0f189b402153b044b54aa5e5314d15083a14e00a6cf228a3d",
+          "archive": "raw"
+        }
+      }
+    },
+    {
+      "id": "e2fsdroid",
+      "file": "e2fsdroid",
+      "kind": "native",
+      "version": "MIO-KITCHEN-SOURCE @0e54dcd",
+      "license": "GPL-2.0",
+      "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
+      "neededFor": "M3 (ext4 repack)",
+      "probe": {
+        "args": ["-h"],
+        "match": "e2fsdroid \\["
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/arm64/e2fsdroid",
+          "sha256": "ba6590c73de6464ae3eb92790a9b95cb99251a46eb16d083758b36192861eff5",
+          "archive": "raw"
+        },
+        "darwin-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/x86_64/e2fsdroid",
+          "sha256": "dc4845f3c5b98fe984cb1120256583d73aa18925ed8a4dd6854dcda508ca5d59",
+          "archive": "raw"
+        },
+        "linux-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Linux/x86_64/e2fsdroid",
+          "sha256": "2dfb4fa5fb8e0a0c7e80436529c95eccf8fb029e34b7c408a75c16d569669a06",
+          "archive": "raw"
+        }
+      }
+    },
+    {
+      "id": "img2simg",
+      "file": "img2simg",
+      "kind": "native",
+      "version": "MIO-KITCHEN-SOURCE @0e54dcd",
+      "license": "Apache-2.0",
+      "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
+      "neededFor": "M3 (sparse images)",
+      "probe": {
+        "args": ["-h"],
+        "match": "Usage: img2simg"
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/arm64/img2simg",
+          "sha256": "4b3aea4f58b6f72dba21d7e88d730a92ec28f5fe605aea397fe0ddfaeb8b5340",
+          "archive": "raw"
+        },
+        "darwin-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/x86_64/img2simg",
+          "sha256": "d3edd4bd9176df10f0313dc2d8cfed38a3ccf5f57d22a0379a299ec4bd83f75f",
+          "archive": "raw"
+        },
+        "linux-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Linux/x86_64/img2simg",
+          "sha256": "11d03911e46f2cce3f8f2f30f015699998b8157420e800c4ed09ee57e6c91f9a",
+          "archive": "raw"
+        }
+      }
+    },
+    {
+      "id": "magiskboot",
+      "file": "magiskboot",
+      "kind": "native",
+      "version": "MIO-KITCHEN-SOURCE @0e54dcd",
+      "license": "GPL-3.0-or-later",
+      "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
+      "neededFor": "M3 (boot images)",
+      "probe": {
+        "args": [],
+        "match": "MagiskBoot"
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/arm64/magiskboot",
+          "sha256": "6fb59f6eaab45d3fcf8f46e7cb6fd8304d597353a7133976969a27de317c5a91",
+          "archive": "raw"
+        },
+        "darwin-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/x86_64/magiskboot",
+          "sha256": "aa7c40568dfd7202f26dd0e4664f3f1d7845d23cce68d198022e9fd52fb661bc",
+          "archive": "raw"
+        },
+        "linux-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Linux/x86_64/magiskboot",
+          "sha256": "6586c406b2a0fadf67ca24df17d2ce10c8b3f62952367a3ee10d7fa6973b0c60",
+          "archive": "raw"
+        }
+      }
+    },
+    {
+      "id": "brotli",
+      "file": "brotli",
+      "kind": "native",
+      "version": "MIO-KITCHEN-SOURCE @0e54dcd",
+      "license": "MIT",
+      "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
+      "neededFor": "M2 (.new.dat.br)",
+      "probe": {
+        "args": ["--version"],
+        "match": "brotli (\\S+)"
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/arm64/brotli",
+          "sha256": "e328d2da175662e177e14a462e39639b0249206c73d6c35c55c4cd41384ce470",
+          "archive": "raw"
+        },
+        "darwin-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/x86_64/brotli",
+          "sha256": "2c467f046752cb4bb572ef5d6dca6381ee1f2a56f0c2ca805350c207aaf85e8f",
+          "archive": "raw"
+        },
+        "linux-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Linux/x86_64/brotli",
+          "sha256": "401e8bda6f883dd568a6ab1390d27827b685a2706f8c8b21a53d1d25dcf91cb6",
+          "archive": "raw"
+        }
+      }
+    },
+    {
+      "id": "zstd",
+      "file": "zstd",
+      "kind": "native",
+      "version": "MIO-KITCHEN-SOURCE @0e54dcd",
+      "license": "BSD-3-Clause OR GPL-2.0-only",
+      "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
+      "neededFor": "M2/M3 (zstd images)",
+      "probe": {
+        "args": ["--version"],
+        "match": "Zstandard CLI .* v(\\S+),"
+      },
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/arm64/zstd",
+          "sha256": "88e4840f854a845b163d169809fab38b7bbc9ee0059d469615c352df7368fbbb",
+          "archive": "raw"
+        },
+        "darwin-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Darwin/x86_64/zstd",
+          "sha256": "0f770922ff862bafdccb8be5cb6cf44c6195c7d2a20a0fd95c8a9666c0217819",
+          "archive": "raw"
+        },
+        "linux-x64": {
+          "url": "https://raw.githubusercontent.com/ColdWindScholar/MIO-KITCHEN-SOURCE/0e54dcd40c19299b235599e644bfdcc263564047/bin/Linux/x86_64/zstd",
+          "sha256": "cfe62587e4019303ec1092366feb319562b25b993b3ab5045865c355d26a190d",
+          "archive": "raw"
+        }
+      }
+    },
+    {
+      "id": "apkeditor",
+      "file": "APKEditor.jar",
+      "kind": "jar",
+      "version": "1.4.9",
+      "license": "Apache-2.0",
+      "project": "https://github.com/REAndroid/APKEditor",
+      "neededFor": "M7 (APK editor)",
+      "probe": {
+        "args": ["-version"],
+        "match": "APKEditor version (\\S+),"
+      },
+      "artifacts": {
+        "common": {
+          "url": "https://github.com/REAndroid/APKEditor/releases/download/V1.4.9/APKEditor-1.4.9.jar",
+          "sha256": "a9cd40df818845456be6d696de6110c89edf4b0a0580cb83438ed6b25a366e67",
+          "archive": "raw"
+        }
+      }
+    },
+    {
+      "id": "apktool",
+      "file": "apktool.jar",
+      "kind": "jar",
+      "version": "3.0.3",
+      "license": "Apache-2.0",
+      "project": "https://github.com/iBotPeaches/Apktool",
+      "neededFor": "M7/M8 (framework res)",
+      "probe": {
+        "args": ["--version"],
+        "match": "^(\\d+\\.\\d+\\.\\d+)"
+      },
+      "artifacts": {
+        "common": {
+          "url": "https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar",
+          "sha256": "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423",
+          "archive": "raw"
+        }
+      }
+    }
+  ]
+}

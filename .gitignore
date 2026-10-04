@@ -1,0 +1,31 @@
+node_modules
+out
+dist
+release
+.cache
+.eslintcache
+*.log*
+.DS_Store
+.env
+.env.*
+test-results
+playwright-report
+
+# downloaded host binaries (fetched by `pnpm fetch-bins`, never committed)
+resources/bin/*/
+!resources/bin/manifest.json
+
+# ROM material must never be committed
+*.img
+*.bin
+*.zip
+*.tgz
+*.tar
+*.tar.gz
+*.zst
+*.br
+*.dat
+*.apk
+*.jar
+*.ozip
+projects/

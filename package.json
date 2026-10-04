@@ -1,0 +1,60 @@
+{
+  "name": "hyperkitchen",
+  "productName": "HyperKitchen",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop ROM kitchen for customizing Xiaomi HyperOS CN ROMs",
+  "main": "./out/main/index.js",
+  "author": "Fakhri Adi Saputra",
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://github.com/fakhrads/hyperkitchen",
+  "scripts": {
+    "format": "prettier --write .",
+    "lint": "eslint --cache .",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "pnpm typecheck:node && pnpm typecheck:web",
+    "fetch-bins": "node scripts/fetch-bins.mjs",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "start": "electron-vite preview",
+    "dev": "electron-vite dev",
+    "build": "pnpm typecheck && electron-vite build",
+    "postinstall": "electron-builder install-app-deps",
+    "build:unpack": "pnpm build && electron-builder --dir",
+    "build:mac": "pnpm build && electron-builder --mac",
+    "build:linux": "pnpm build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@electron-toolkit/utils": "^4.0.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config-prettier": "^3.0.0",
+    "@electron-toolkit/eslint-config-ts": "^3.1.0",
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.19.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "electron": "44.5.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "prettier": "^3.7.4",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6",
+    "vitest": "^4.0.0"
+  },
+  "desktopName": "hyperkitchen.desktop",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=22"
+  }
+}

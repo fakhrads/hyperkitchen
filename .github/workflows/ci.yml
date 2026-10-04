@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-24.04
+            bins: linux-x64
+            package: pnpm exec electron-builder --linux --x64
+            packaged_exe: release/*/linux-unpacked/hyperkitchen
+            e2e_prefix: xvfb-run -a
+          - name: macos-arm64
+            os: macos-latest
+            bins: darwin-arm64,darwin-x64
+            package: pnpm exec electron-builder --mac --arm64 --x64
+            packaged_exe: release/*/mac-arm64/HyperKitchen.app/Contents/MacOS/HyperKitchen
+            e2e_prefix: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - name: Host info
+        run: |
+          uname -a
+          node -p "process.platform + '-' + process.arch"
+          if [ "$RUNNER_OS" = "macOS" ]; then xattr -h || true; fi
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          node node_modules/electron/install.js
+
+      - name: Cache host binaries
+        uses: actions/cache@v6
+        with:
+          path: .cache/bins
+          key: bins-${{ hashFiles('resources/bin/manifest.json') }}
+
+      - name: Fetch pinned binaries
+        run: pnpm fetch-bins --platform ${{ matrix.bins }}
+
+      - name: Typecheck and lint
+        run: |
+          pnpm typecheck
+          pnpm lint
+
+      - name: Unit tests (probe real binaries on this host)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm exec electron-vite build
+
+      - name: Smoke test (dev build)
+        run: ${{ matrix.e2e_prefix }} pnpm test:e2e
+
+      - name: Package
+        run: ${{ matrix.package }}
+
+      - name: Smoke test (packaged app)
+        run: |
+          EXE=$(ls -d ${{ matrix.packaged_exe }} | head -1)
+          echo "packaged executable: $EXE"
+          HK_E2E_EXECUTABLE="$PWD/$EXE" ${{ matrix.e2e_prefix }} pnpm test:e2e
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-${{ matrix.name }}
+          path: test-results/
+          if-no-files-found: ignore
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v7
+        with:
+          name: hyperkitchen-${{ matrix.name }}
+          path: |
+            release/*/*.AppImage
+            release/*/*.dmg
+          if-no-files-found: error

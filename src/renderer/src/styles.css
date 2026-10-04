@@ -1,0 +1,277 @@
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --sidebar: #eceef2;
+  --text: #1c1f24;
+  --muted: #5d6573;
+  --border: #d9dde3;
+  --accent: #e8590c;
+  --accent-text: #ffffff;
+  --ok: #2b8a3e;
+  --warn: #b7791f;
+  --error: #c92a2a;
+  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171b;
+    --panel: #1d2026;
+    --sidebar: #111316;
+    --text: #e6e8ec;
+    --muted: #9aa3b0;
+    --border: #2d323a;
+    --accent: #ff7a33;
+    --ok: #51cf66;
+    --warn: #fcc419;
+    --error: #ff6b6b;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font:
+    14px/1.45 -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  height: 100%;
+}
+
+.sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 14px 10px;
+  gap: 2px;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 16px;
+  padding: 4px 10px 14px;
+}
+
+.brand span {
+  color: var(--accent);
+}
+
+.nav {
+  all: unset;
+  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.nav:hover {
+  color: var(--text);
+}
+
+.nav.active {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.sidebar-foot {
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 10px;
+}
+
+.main {
+  overflow: auto;
+  padding: 22px 28px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 15px;
+  margin: 22px 0 8px;
+}
+
+.sub {
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+button {
+  font: inherit;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+input[type='text'] {
+  font: inherit;
+  padding: 6px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  min-width: 280px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.badge {
+  display: inline-block;
+  min-width: 46px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.badge.ok,
+.badge.done {
+  background: var(--ok);
+}
+
+.badge.warn,
+.badge.running {
+  background: var(--warn);
+}
+
+.badge.error,
+.badge.failed {
+  background: var(--error);
+}
+
+.badge.cancelled {
+  background: var(--muted);
+}
+
+.progress {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 140px;
+}
+
+.progress > div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.15s;
+}
+
+.progress.indeterminate > div {
+  width: 30% !important;
+  animation: slide 1.1s infinite ease-in-out;
+}
+
+@keyframes slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(330%);
+  }
+}
+
+.log {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.log .stderr {
+  color: var(--warn);
+}
+
+.error-text {
+  color: var(--error);
+}
+
+.empty {
+  color: var(--muted);
+  padding: 8px 0;
+}

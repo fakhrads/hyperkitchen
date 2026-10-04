@@ -1,0 +1,54 @@
+appId: com.hyperkitchen.app
+productName: HyperKitchen
+directories:
+  buildResources: build
+  output: release/${version}
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!tests/*'
+  - '!scripts/*'
+  - '!resources/bin/**'
+  - '!.cache/**'
+  - '!release/**'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{vitest,playwright}.config.{js,ts,mjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,CHANGELOG.md,README.md,PLAN.md,THIRD_PARTY.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,pnpm-workspace.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+asarUnpack:
+  - resources/**
+# Host binaries live outside the asar so they can be executed. Only the
+# directory for the target platform/arch is shipped.
+extraResources:
+  - from: resources/bin/${platform}-${arch}
+    to: bin/${platform}-${arch}
+    filter: ['**/*', '!.stamp.json']
+  - from: resources/bin/common
+    to: bin/common
+    filter: ['**/*', '!.stamp.json']
+  - from: resources/bin/manifest.json
+    to: bin/manifest.json
+  - from: LICENSE
+    to: LICENSE
+  - from: THIRD_PARTY.md
+    to: THIRD_PARTY.md
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+  # Unsigned personal build. Gatekeeper: right-click > Open on first launch.
+  identity: null
+  notarize: false
+dmg:
+  artifactName: ${name}-${version}-${arch}.${ext}
+linux:
+  target:
+    - AppImage
+  category: Development
+  maintainer: Fakhri Adi Saputra
+  syncDesktopName: true
+appImage:
+  artifactName: ${name}-${version}-${arch}.${ext}
+npmRebuild: false
+publish: null
