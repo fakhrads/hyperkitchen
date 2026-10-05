@@ -15,7 +15,8 @@ const TITLES: Record<JobKind, string> = {
   doctor: 'Doctor',
   'java-install': 'Install Java (Temurin JRE)',
   'clear-quarantine': 'Clear macOS quarantine',
-  unpack: 'Unpack ROM'
+  unpack: 'Unpack ROM',
+  build: 'Build ROM'
 }
 
 const MAX_LOG_LINES = 5000

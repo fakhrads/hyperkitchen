@@ -49,6 +49,7 @@ are in that repository under `bin/licenses/`.
 | UY-Scuti | see repository | Reference for Joyose and PowerKeeper patches |
 | unlock-cn-gms (MWTJC / fei-ke) | see repository | Reference for the `cn.google.services` permission edits |
 | hyperos-fcm-fix (dingwen07) | GPL-3.0 | Reference for the Greezer / MILLET_NO_RESTRICT_APP investigation |
+| PureCN onyx ROM | not stated | Its vendor_boot first-stage fstab was compared with stock to confirm the avb flag edit; no files are copied |
 
 ## Format specifications implemented
 
@@ -63,7 +64,9 @@ below. No code was copied.
 | APK Signing Block (v2, v3, v3.1) | AOSP `tools/apksig` (Apache-2.0) |
 | PKCS#7 SignedData (v1 signatures) | RFC 5652 |
 | ZIP | PKWARE APPNOTE.TXT |
-| erofs and ext4 superblock magic | erofs-utils `include/erofs_fs.h`, Linux `fs/ext4/ext4.h` |
+| erofs superblock (magic, block size, epoch, UUID), ext4 magic | erofs-utils `include/erofs_fs.h`, Linux `fs/ext4/ext4.h` |
+| vbmeta header flags | AOSP `external/avb/libavb/avb_vbmeta_image.h` (Apache-2.0 / MIT) |
+| fstab avb flags and first-stage dm-verity | AOSP `system/core/init/first_stage_mount.cpp`, `fs_mgr/libfs_avb/fs_avb.cpp` (Apache-2.0) |
 
 ## npm dependencies
 

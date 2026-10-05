@@ -63,7 +63,14 @@ export interface SuperLayout {
   logicalBlockSize: number
   version: string
   virtualAb: boolean
-  blockDevices: Array<{ name: string; size: number; alignment: number; firstLogicalSector: number }>
+  blockDevices: Array<{
+    name: string
+    size: number
+    alignment: number
+    /** Absent in stock.json files written before M3; treat as 0. */
+    alignmentOffset?: number
+    firstLogicalSector: number
+  }>
   groups: Array<{ name: string; maximumSize: number }>
   partitions: Array<{ name: string; group: string; attributes: number; size: number }>
 }
@@ -120,6 +127,48 @@ export interface Inventory {
   apks: ApkInfo[]
 }
 
+// ---------------------------------------------------------------- build (M3)
+
+/**
+ * How the build keeps the device from rejecting rebuilt partitions (their AVB hashtree no
+ * longer matches):
+ * - fstab: remove avb flags from the vendor_boot first-stage fstab (what PureCN ships for onyx)
+ * - vbmeta-flags: set HASHTREE_DISABLED | VERIFICATION_DISABLED in vbmeta.img
+ * Both only boot with an unlocked bootloader.
+ */
+export type VerityMode = 'fstab' | 'vbmeta-flags'
+
+export interface BuildPartition {
+  name: string
+  lpName: string
+  size: number
+  sha256: string
+  /** Rebuilt with mkfs.erofs from work/; false means the stock image was reused as is. */
+  rebuilt: boolean
+  /** Extracted again and compared file by file with the tree it was built from. */
+  treeVerified: boolean
+}
+
+export interface BuildInfo {
+  schema: 1
+  id: string
+  status: 'done' | 'failed' | 'cancelled'
+  error: string | null
+  startedAt: string
+  finishedAt: string
+  device: string | null
+  romVersion: string | null
+  stockInput: { path: string; sha256: string | null }
+  verity: VerityMode
+  verityChanges: string[]
+  recipeOperations: number
+  partitions: BuildPartition[]
+  /** Super image read back and checked against the stock layout and the built images. */
+  superVerified: boolean
+  scripts: string[]
+  warnings: string[]
+}
+
 export interface DirEntry {
   name: string
   type: 'dir' | 'file' | 'symlink' | 'other'
@@ -130,7 +179,8 @@ export interface DirEntry {
 
 // ---------------------------------------------------------------- jobs
 
-export type JobKind = 'selftest' | 'doctor' | 'java-install' | 'clear-quarantine' | 'unpack'
+export type JobKind =
+  'selftest' | 'doctor' | 'java-install' | 'clear-quarantine' | 'unpack' | 'build'
 
 export type JobStatus = 'running' | 'done' | 'failed' | 'cancelled'
 

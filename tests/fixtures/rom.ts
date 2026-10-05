@@ -101,6 +101,38 @@ export async function buildFastbootRom(dir: string, binDir: string): Promise<str
   boot.write('ANDROID!', 0, 'latin1')
   await writeFile(join(images, 'boot.img'), boot)
   await writeFile(join(rom, 'misc.txt'), 'device=testdev\nbuild_number=TEST.1.0.FIXTURE\n')
-  await writeFile(join(rom, 'flash_all.sh'), '# fixture\n')
+  // AvbVBMetaImageHeader: "AVB0", big-endian version 1.0, flags 0 at offset 120.
+  const vbmeta = Buffer.alloc(4096)
+  vbmeta.write('AVB0', 0, 'latin1')
+  vbmeta.writeUInt32BE(1, 4)
+  await writeFile(join(images, 'vbmeta.img'), vbmeta)
+  await writeFile(join(images, 'sparsecrclist.txt'), 'SPARSECRC-LIST\nsuper 1 0x0\n')
+  await writeFile(join(images, 'anti_version.txt'), '2\n')
+  // Same shape as Xiaomi's flash_all.sh: CRC block, `dirname $0` paths, error checks.
+  const step = (cmd: string): string =>
+    `fastboot $* ${cmd}\nif [ $? -ne 0 ] ; then echo "error"; exit 1; fi\n`
+  const common =
+    'fastboot $* getvar crc 2>&1 | grep "^crc: 1"\nif [ $? -eq 0 ]; then\n' +
+    step('flash sparsecrclist `dirname $0`/images/sparsecrclist.txt') +
+    'fi\n' +
+    step('erase boot_ab') +
+    step('flash super `dirname $0`/images/super.img') +
+    step('flash vbmeta_ab `dirname $0`/images/vbmeta.img') +
+    '# fastboot $* flash pdp_ab `dirname $0`/images/pdp.elf\n'
+  await writeFile(
+    join(rom, 'flash_all.sh'),
+    common +
+      step('erase metadata') +
+      step('flash boot_ab `dirname $0`/images/boot.img') +
+      step('set_active a') +
+      step('reboot')
+  )
+  await writeFile(
+    join(rom, 'flash_all_except_storage.sh'),
+    common +
+      step('flash boot_ab `dirname $0`/images/boot.img') +
+      step('set_active a') +
+      step('reboot')
+  )
   return rom
 }

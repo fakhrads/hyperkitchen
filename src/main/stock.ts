@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { lstat, readdir, readFile, readlink, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
-import type { DirEntry, Inventory, StockInfo } from '../shared/types'
+import type { BuildInfo, DirEntry, Inventory, StockInfo } from '../shared/types'
 import { openProject } from './projects'
 import { assertInside } from './safety'
 
@@ -72,4 +72,48 @@ export async function checkUnpackParams(
     throw new Error('the input must be outside the project folder')
   }
   return { ...params, projectPath: project.path, input }
+}
+
+/** Builds of a project, newest first (build/<id>/build.json). */
+export async function listBuilds(projectPath: string): Promise<BuildInfo[]> {
+  const p = await openProject(projectPath)
+  const dir = join(p.path, 'build')
+  const out: BuildInfo[] = []
+  let ids: string[] = []
+  try {
+    ids = await readdir(dir)
+  } catch {
+    return out
+  }
+  for (const id of ids) {
+    try {
+      out.push(JSON.parse(await readFile(join(dir, id, 'build.json'), 'utf8')) as BuildInfo)
+    } catch {
+      /* in progress or not a build */
+    }
+  }
+  return out.sort((a, b) => b.id.localeCompare(a.id))
+}
+
+/** Absolute folder of one build, validated to be inside the project's build/ dir. */
+export async function buildDir(projectPath: string, id: string): Promise<string> {
+  const p = await openProject(projectPath)
+  if (!/^[0-9]{8}-[0-9]{6}$/.test(id)) throw new Error(`bad build id ${id}`)
+  return assertInside(join(p.path, 'build'), join(p.path, 'build', id))
+}
+
+export const BuildParamsSchema = z.object({
+  projectPath: z.string().min(1),
+  verity: z.enum(['fstab', 'vbmeta-flags']).default('fstab'),
+  verify: z.boolean().default(true)
+})
+
+export async function checkBuildParams(
+  raw: Record<string, unknown>,
+  generator: string
+): Promise<z.infer<typeof BuildParamsSchema> & { generator: string }> {
+  const params = BuildParamsSchema.parse(raw)
+  const project = await openProject(params.projectPath)
+  if (!(await readStock(project.path))) throw new Error('unpack a stock ROM first')
+  return { ...params, projectPath: project.path, generator }
 }

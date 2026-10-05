@@ -1,21 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import type {
   ApkInfo,
+  BuildInfo,
   DirEntry,
   Inventory,
   JobState,
   ProjectSummary,
-  StockInfo
+  StockInfo,
+  VerityMode
 } from '../../../shared/types'
 import { errorText, formatSize } from '../format'
 import { ProgressBar } from './Jobs'
 
-// Unpack jobs started from this window, by project path. Survives page switches.
-const unpackJobs = new Map<string, string>()
+// Unpack or build jobs started from this window, by project path. Survives page switches.
+const projectJobs = new Map<string, string>()
 
 const ROM_EXTENSIONS = ['tgz', 'gz', 'tar', 'zip', 'bin', 'img']
 
-type Tab = 'partitions' | 'files' | 'props' | 'apks'
+type Tab = 'partitions' | 'files' | 'props' | 'apks' | 'build'
 
 export function ProjectView({
   project,
@@ -28,26 +30,29 @@ export function ProjectView({
 }): React.JSX.Element {
   const [stock, setStock] = useState<StockInfo | null>(null)
   const [inventory, setInventory] = useState<Inventory | null>(null)
+  const [builds, setBuilds] = useState<BuildInfo[]>([])
   const [loaded, setLoaded] = useState(false)
   const [input, setInput] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('partitions')
-  const [jobId, setJobId] = useState<string | null>(unpackJobs.get(project.path) ?? null)
+  const [jobId, setJobId] = useState<string | null>(projectJobs.get(project.path) ?? null)
   const job = jobs.find((j) => j.id === jobId) ?? null
   const running = job?.status === 'running'
 
-  // Load on mount (the parent remounts this view per project) and again when our unpack
-  // job finishes.
+  // Load on mount (the parent remounts this view per project) and again when our unpack or
+  // build job finishes.
   const finished = job && job.status !== 'running' ? job.status : null
   useEffect(() => {
     let alive = true
     void Promise.all([
       window.hk.stock.info(project.path),
-      window.hk.stock.inventory(project.path)
-    ]).then(([s, inv]) => {
+      window.hk.stock.inventory(project.path),
+      window.hk.builds.list(project.path)
+    ]).then(([s, inv, b]) => {
       if (!alive) return
       setStock(s)
       setInventory(inv)
+      setBuilds(b)
       setLoaded(true)
     })
     return () => {
@@ -59,7 +64,8 @@ export function ProjectView({
     if (finished) onChanged()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished])
-  const shownError = error ?? (job?.status === 'failed' ? (job.error ?? 'unpack failed') : null)
+  const shownError =
+    error ?? (job?.status === 'failed' ? (job.error ?? `${job.kind} failed`) : null)
 
   const pickFile = async (): Promise<void> => {
     const f = await window.hk.dialog.pickFile('Choose a ROM file', ROM_EXTENSIONS)
@@ -78,7 +84,18 @@ export function ProjectView({
         input,
         reset
       })
-      unpackJobs.set(project.path, id)
+      projectJobs.set(project.path, id)
+      setJobId(id)
+    } catch (e) {
+      setError(errorText(e))
+    }
+  }
+
+  const startBuild = async (verity: VerityMode, verify: boolean): Promise<void> => {
+    setError(null)
+    try {
+      const id = await window.hk.jobs.start('build', { projectPath: project.path, verity, verify })
+      projectJobs.set(project.path, id)
       setJobId(id)
     } catch (e) {
       setError(errorText(e))
@@ -130,7 +147,8 @@ export function ProjectView({
       </h2>
 
       {running && job && (
-        <div className="panel" data-testid="unpack-progress">
+        <div className="panel" data-testid="job-progress">
+          <strong>{job.title}</strong>
           <div className="row">
             <ProgressBar job={job} />
             <span>{Math.round((job.progress ?? 0) * 100)}%</span>
@@ -176,7 +194,8 @@ export function ProjectView({
                 ['partitions', 'Partitions'],
                 ['files', 'Files'],
                 ['props', 'build.prop'],
-                ['apks', 'APKs']
+                ['apks', 'APKs'],
+                ['build', 'Build']
               ] as const
             ).map(([id, label]) => (
               <button
@@ -193,7 +212,15 @@ export function ProjectView({
           {tab === 'files' && <FilesTab projectPath={project.path} />}
           {tab === 'props' && <PropsTab stock={stock} />}
           {tab === 'apks' && <ApksTab apks={inventory?.apks ?? []} />}
-          {!running && <div style={{ marginTop: 22 }}>{chooser}</div>}
+          {tab === 'build' && (
+            <BuildTab
+              projectPath={project.path}
+              builds={builds}
+              running={running}
+              onStart={(v, verify) => void startBuild(v, verify)}
+            />
+          )}
+          {!running && tab !== 'build' && <div style={{ marginTop: 22 }}>{chooser}</div>}
         </>
       )}
     </div>
@@ -468,6 +495,117 @@ function ApksTab({ apks }: { apks: ApkInfo[] }): React.JSX.Element {
       </table>
       {rows.length > MAX_ROWS && (
         <p className="sub">Showing the first {MAX_ROWS}. Narrow the filter to see more.</p>
+      )}
+    </>
+  )
+}
+
+function BuildTab({
+  projectPath,
+  builds,
+  running,
+  onStart
+}: {
+  projectPath: string
+  builds: BuildInfo[]
+  running: boolean
+  onStart: (verity: VerityMode, verify: boolean) => void
+}): React.JSX.Element {
+  const [verity, setVerity] = useState<VerityMode>('fstab')
+  const [verify, setVerify] = useState(true)
+  return (
+    <>
+      <div className="panel" data-testid="build-panel">
+        <strong>Build a fastboot package</strong>
+        <p className="sub" style={{ margin: '4px 0 10px' }}>
+          Rebuilds every partition from work/ with the stock erofs settings, packs super.img with
+          the stock layout and writes flash scripts you run yourself. The recipe is still empty in
+          this version, so the result has the same files as stock: use it as the boot test before
+          any modification. The package only boots with an <strong>unlocked</strong> bootloader.
+        </p>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <label>
+            <input
+              type="radio"
+              name="verity"
+              checked={verity === 'fstab'}
+              onChange={() => setVerity('fstab')}
+              data-testid="verity-fstab"
+            />{' '}
+            <strong>Remove avb flags from the vendor_boot fstab</strong> (default). vbmeta stays
+            stock. Same edit as the PureCN onyx ROM.
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="verity"
+              checked={verity === 'vbmeta-flags'}
+              onChange={() => setVerity('vbmeta-flags')}
+              data-testid="verity-vbmeta"
+            />{' '}
+            <strong>Disable verification in vbmeta.img</strong> (flags 3, like fastboot
+            --disable-verity --disable-verification). vendor_boot stays stock.
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={verify}
+              onChange={(e) => setVerify(e.target.checked)}
+              data-testid="build-verify"
+            />{' '}
+            Verify: extract every rebuilt image again and compare it file by file (slower)
+          </label>
+        </div>
+        <div className="row" style={{ marginTop: 10 }}>
+          <button
+            className="primary"
+            disabled={running}
+            onClick={() => onStart(verity, verify)}
+            data-testid="build-start"
+          >
+            Build
+          </button>
+        </div>
+      </div>
+
+      <h2>Builds</h2>
+      {builds.length === 0 ? (
+        <div className="empty">No builds yet.</div>
+      ) : (
+        builds.map((b) => (
+          <div className="panel" key={b.id} data-testid={`build-${b.id}`} data-status={b.status}>
+            <div className="row">
+              <span className={`badge ${b.status}`}>{b.status}</span>
+              <strong className="mono">{b.id}</strong>
+              <span className="sub" style={{ margin: 0 }}>
+                {b.verity}, {b.partitions.filter((p) => p.treeVerified).length}/
+                {b.partitions.length} partitions verified, super.img{' '}
+                {b.superVerified ? 'verified' : 'not verified'}
+              </span>
+              <button onClick={() => void window.hk.builds.reveal(projectPath, b.id)}>
+                Show in folder
+              </button>
+            </div>
+            {b.error && <p className="error-text">{b.error}</p>}
+            {b.verityChanges.length > 0 && (
+              <div className="mono" style={{ marginTop: 6 }}>
+                {b.verityChanges.map((c) => (
+                  <div key={c}>{c}</div>
+                ))}
+              </div>
+            )}
+            {b.status === 'done' && (
+              <div className="mono" style={{ marginTop: 6 }}>
+                scripts: {b.scripts.join(', ')}
+              </div>
+            )}
+            {b.warnings.map((w) => (
+              <div key={w} className="error-text">
+                {w}
+              </div>
+            ))}
+          </div>
+        ))
       )}
     </>
   )

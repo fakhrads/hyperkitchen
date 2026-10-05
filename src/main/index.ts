@@ -11,7 +11,15 @@ import { JobManager, type WorkerLike } from './jobs'
 import { binDir, commonBinDir, currentPlatformKey, managedJreDir, manifestPath } from './paths'
 import { createProject, listProjects, openProject } from './projects'
 import { SettingsPatchSchema, SettingsStore } from './settings'
-import { checkUnpackParams, listStockDir, readInventory, readStock } from './stock'
+import {
+  buildDir,
+  checkBuildParams,
+  checkUnpackParams,
+  listBuilds,
+  listStockDir,
+  readInventory,
+  readStock
+} from './stock'
 
 // Test hooks: isolate user data and the default projects folder.
 if (process.env.HK_USER_DATA) app.setPath('userData', process.env.HK_USER_DATA)
@@ -78,7 +86,7 @@ async function rememberProject(path: string): Promise<void> {
 }
 
 const JobStartSchema = z.object({
-  kind: z.enum(['selftest', 'doctor', 'java-install', 'clear-quarantine', 'unpack']),
+  kind: z.enum(['selftest', 'doctor', 'java-install', 'clear-quarantine', 'unpack', 'build']),
   params: z.record(z.string(), z.unknown()).default({})
 })
 
@@ -150,14 +158,29 @@ function registerIpc(): void {
     listStockDir(z.string().min(1).parse(p), z.string().parse(rel))
   )
 
+  ipcMain.handle(IPC.buildsList, (_e, p: unknown) => listBuilds(z.string().min(1).parse(p)))
+  ipcMain.handle(IPC.buildsReveal, async (_e, p: unknown, id: unknown) => {
+    shell.showItemInFolder(await buildDir(z.string().min(1).parse(p), z.string().parse(id)))
+  })
+
   ipcMain.handle(IPC.jobsList, () => jobs.list())
   ipcMain.handle(IPC.jobsStart, async (_e, kind: unknown, params: unknown) => {
     const parsed = JobStartSchema.parse({ kind, params: params ?? {} })
-    if (parsed.kind === 'unpack') {
-      if (jobs.list().some((j) => j.kind === 'unpack' && j.status === 'running')) {
-        throw new Error('an unpack is already running')
+    if (parsed.kind === 'unpack' || parsed.kind === 'build') {
+      // One heavy job at a time: they share the disk and may touch the same project.
+      if (
+        jobs
+          .list()
+          .some((j) => (j.kind === 'unpack' || j.kind === 'build') && j.status === 'running')
+      ) {
+        throw new Error('an unpack or build is already running')
       }
-      return jobs.start('unpack', await checkUnpackParams(parsed.params))
+      return parsed.kind === 'unpack'
+        ? jobs.start('unpack', await checkUnpackParams(parsed.params))
+        : jobs.start(
+            'build',
+            await checkBuildParams(parsed.params, `HyperKitchen ${app.getVersion()}`)
+          )
     }
     return jobs.start(parsed.kind, parsed.params)
   })

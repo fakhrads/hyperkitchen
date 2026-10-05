@@ -11,8 +11,8 @@
 // that extraction is removed once everything has been moved into stock/.
 
 import { createHash } from 'node:crypto'
-import { constants as fsc, createReadStream, existsSync } from 'node:fs'
-import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { createReadStream, existsSync } from 'node:fs'
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { Transform } from 'node:stream'
 import { assertInside } from '../main/safety'
@@ -39,6 +39,7 @@ import { RawFileSource, writeImage, type BlockSource } from './formats/source'
 import { isSparseFile, SparseSource } from './formats/sparse'
 import { inventoryApks, readPartitionProps } from './inventory'
 import { run } from './spawn'
+import { cloneOrCopy, hashInBackground } from './fsutil'
 
 export interface UnpackParams {
   projectPath: string
@@ -70,33 +71,6 @@ class Stages {
 
 const GiB = 1024 ** 3
 const fmt = (n: number): string => `${(n / GiB).toFixed(2)} GiB`
-
-/** Hash a file in the background. The promise never rejects unobserved: await it later. */
-function hashInBackground(path: string, signal: AbortSignal): Promise<string> {
-  const p = hashFile(path, signal)
-  p.catch(() => {})
-  return p
-}
-
-async function hashFile(path: string, signal: AbortSignal): Promise<string> {
-  const h = createHash('sha256')
-  for await (const chunk of createReadStream(path, { highWaterMark: 4 * 1024 * 1024 })) {
-    throwIfCancelled(signal)
-    h.update(chunk as Buffer)
-  }
-  return h.digest('hex')
-}
-
-/** Clone when the filesystem can (APFS via cp -c, btrfs/xfs via FICLONE), else copy. */
-async function cloneOrCopy(src: string, dst: string): Promise<void> {
-  if (process.platform === 'darwin') {
-    // cp -c uses clonefile(2) and falls back to a normal copy across volumes (man cp).
-    const r = await run('cp', ['-c', src, dst])
-    if (r.code !== 0) throw new Error(`cp -c ${src}: ${r.output.trim()}`)
-  } else {
-    await copyFile(src, dst, fsc.COPYFILE_FICLONE)
-  }
-}
 
 /** Total uncompressed size from the last line of `unzip -l` ("<bytes>  <n> files"). */
 async function zipUncompressedSize(zip: string): Promise<number> {
@@ -215,6 +189,7 @@ function superLayout(meta: LpMetadata): SuperLayout {
       name: b.partitionName,
       size: b.size,
       alignment: b.alignment,
+      alignmentOffset: b.alignmentOffset,
       firstLogicalSector: b.firstLogicalSector
     })),
     groups: meta.groups.map((g) => ({ name: g.name, maximumSize: g.maximumSize })),

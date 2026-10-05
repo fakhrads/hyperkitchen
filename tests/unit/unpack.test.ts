@@ -77,7 +77,15 @@ describe.runIf(haveBins)('unpack', () => {
       ['system', 'system_a', 'erofs', true],
       ['vendor', 'vendor_a', 'erofs', true]
     ])
-    expect(stock.firmware.sort()).toEqual(['flash_all.sh', 'images/boot.img', 'misc.txt'])
+    expect(stock.firmware.sort()).toEqual([
+      'flash_all.sh',
+      'flash_all_except_storage.sh',
+      'images/anti_version.txt',
+      'images/boot.img',
+      'images/sparsecrclist.txt',
+      'images/vbmeta.img',
+      'misc.txt'
+    ])
     const fs = join(project, 'stock', 'fs')
     expect(readFileSync(join(fs, 'vendor', 'etc', 'fixture.txt'), 'utf8')).toBe('vendor fixture\n')
     // extract.erofs names config files after the image, so the slot suffix must be gone.

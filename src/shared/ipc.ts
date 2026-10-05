@@ -1,5 +1,6 @@
 import type {
   AppInfo,
+  BuildInfo,
   DirEntry,
   DoctorReport,
   Inventory,
@@ -25,6 +26,8 @@ export const IPC = {
   stockInfo: 'stock:info',
   stockInventory: 'stock:inventory',
   stockListDir: 'stock:list-dir',
+  buildsList: 'builds:list',
+  buildsReveal: 'builds:reveal',
   jobsList: 'jobs:list',
   jobsStart: 'jobs:start',
   jobsCancel: 'jobs:cancel',
@@ -58,6 +61,11 @@ export interface HkApi {
     inventory(projectPath: string): Promise<Inventory | null>
     /** rel is relative to stock/fs, e.g. "system/system/priv-app". */
     listDir(projectPath: string, rel: string): Promise<DirEntry[]>
+  }
+  builds: {
+    list(projectPath: string): Promise<BuildInfo[]>
+    /** Show the build folder in the system file manager. */
+    reveal(projectPath: string, id: string): Promise<void>
   }
   jobs: {
     list(): Promise<JobState[]>

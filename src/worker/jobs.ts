@@ -4,6 +4,7 @@ import { clearQuarantine, runDoctor } from './doctor'
 import { installManagedJre } from './java'
 import { run } from './spawn'
 import { unpack } from './unpack'
+import { build } from './build'
 
 /**
  * Self-test: exercises progress, logging, a real child process and cancel.
@@ -36,5 +37,13 @@ export const handlers: Record<JobKind, JobHandler> = {
       projectPath: String(params.projectPath),
       input: String(params.input),
       reset: params.reset === true
+    }),
+  // Params are validated in main (BuildParamsSchema) before the job starts.
+  build: (ctx, params) =>
+    build(ctx, {
+      projectPath: String(params.projectPath),
+      verity: params.verity === 'vbmeta-flags' ? 'vbmeta-flags' : 'fstab',
+      verify: params.verify !== false,
+      generator: String(params.generator ?? 'HyperKitchen')
     })
 }

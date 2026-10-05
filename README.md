@@ -6,18 +6,18 @@ notifications, patch the framework, rebrand and repack into a flashable ROM.
 The reference target is the POCO F7 (`onyx`), but device info is always read
 from the ROM itself.
 
-> Status: **M2 (unpack)**. The app shell, job runner, binaries manager and
-> doctor work, and a stock ROM can be unpacked and inspected. Repacking into a
-> flashable ROM arrives in M3. See [`PLAN.md`](PLAN.md) for the full roadmap and
-> research notes.
+> Status: **M3 (repack)**. A stock ROM can be unpacked, inspected and rebuilt
+> into a verified fastboot package. Modifications (debloat, props, GApps, ...)
+> arrive from M4. See [`PLAN.md`](PLAN.md) for the full roadmap and research
+> notes.
 
 ## Supported hosts
 
-| Host | Status |
-|---|---|
+| Host                        | Status                                                                     |
+| --------------------------- | -------------------------------------------------------------------------- |
 | macOS arm64 (Apple Silicon) | supported, tested locally (unit, smoke test of dev build and packaged app) |
-| macOS x64 (Intel) | supported, packaged and signature checked; not yet run on an Intel host |
-| Linux x64 | supported, tested locally (unit, smoke test of dev build and AppImage) |
+| macOS x64 (Intel)           | supported, packaged and signature checked; not yet run on an Intel host    |
+| Linux x64                   | supported, tested locally (unit, smoke test of dev build and AppImage)     |
 
 Windows is not supported.
 
@@ -81,6 +81,17 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   `fs_config` and `file_contexts` to `stock/fs/`, and the super layout, every
   `build.prop` and an APK inventory (package, version, signer SHA-256, read
   without Java) to `stock/stock.json` and `stock/inventory.json`.
+
+- **Build**: `work/` is a fresh clone of `stock/`; every erofs partition is
+  rebuilt with `mkfs.erofs` using the stock block size, timestamp and UUID and
+  the original `fs_config`/`file_contexts`, then (by default) extracted again
+  and compared file by file. `lpmake` packs `super.img` with the stock layout,
+  which is read back and checked. The output in `build/<id>/` holds the
+  firmware, `super.img`, flash scripts derived from the stock ones, a README and
+  `checksums.sha256`. Rebuilt partitions have no AVB hashtree, so the build
+  either removes the avb flags from the vendor_boot first-stage fstab (default)
+  or sets the disable flags in `vbmeta.img`. Either way the package only boots
+  with an unlocked bootloader. HyperKitchen never runs the scripts; you do.
 
 Put the projects folder on a **case-sensitive** filesystem: Android trees can
 hold names that differ only in case. On macOS, an APFS (Case-sensitive) volume

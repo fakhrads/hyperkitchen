@@ -8,7 +8,7 @@ import {
   type ElectronApplication,
   type Page
 } from '@playwright/test'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { platformKey } from '../../src/shared/platform'
@@ -125,6 +125,27 @@ test('unpacks a ROM folder and shows partitions, files, props and APKs', async (
   await expect(page.getByTestId('apks-count')).toHaveText('1 of 1 APKs')
   await page.screenshot({
     path: join(root, 'test-results', `unpack-${process.platform}-${process.arch}.png`),
+    fullPage: true
+  })
+})
+
+test('builds a verified fastboot package from the unpacked ROM', async () => {
+  // Continues with the project unpacked by the previous test. The fixture has no vendor_boot,
+  // so use the vbmeta-flags verity mode.
+  await page.getByTestId('tab-build').click()
+  await page.getByTestId('verity-vbmeta').check()
+  await page.getByTestId('build-start').click()
+  const card = page.locator('[data-testid^="build-2"]').first()
+  await expect(card).toHaveAttribute('data-status', 'done', { timeout: 120_000 })
+  await expect(card).toContainText('2/2 partitions verified, super.img verified')
+  await expect(card).toContainText('vbmeta.img flags 0 -> 3')
+  await expect(card).toContainText('flash_all.sh, flash_all_except_storage.sh')
+  const builds = join(tmp, 'projects', 'onyx unpack', 'build')
+  const id = readdirSync(builds)[0]
+  expect(existsSync(join(builds, id, 'images', 'super.img'))).toBe(true)
+  expect(existsSync(join(builds, id, 'checksums.sha256'))).toBe(true)
+  await page.screenshot({
+    path: join(root, 'test-results', `build-${process.platform}-${process.arch}.png`),
     fullPage: true
   })
 })

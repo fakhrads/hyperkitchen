@@ -29,6 +29,10 @@ const api: HkApi = {
     inventory: (p) => ipcRenderer.invoke(IPC.stockInventory, p),
     listDir: (p, rel) => ipcRenderer.invoke(IPC.stockListDir, p, rel)
   },
+  builds: {
+    list: (p) => ipcRenderer.invoke(IPC.buildsList, p),
+    reveal: (p, id) => ipcRenderer.invoke(IPC.buildsReveal, p, id)
+  },
   jobs: {
     list: () => ipcRenderer.invoke(IPC.jobsList),
     start: (kind, params) => ipcRenderer.invoke(IPC.jobsStart, kind, params),
