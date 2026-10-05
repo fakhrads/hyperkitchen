@@ -167,6 +167,15 @@ input[type='text'] {
   min-width: 280px;
 }
 
+textarea {
+  font: inherit;
+  padding: 6px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
 select {
   font: inherit;
   padding: 5px 8px;

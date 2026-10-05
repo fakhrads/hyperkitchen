@@ -31,7 +31,9 @@ describe('binary manifest', () => {
         if (a!.archive !== 'raw') expect(a!.member, `${t.id} ${k}`).toBeTruthy()
       }
       expect(t.license, t.id).toBeTruthy()
-      expect(() => new RegExp(t.probe.match), t.id).not.toThrow()
+      // Host tools must be probed; payloads (copied into ROM packages) are never run.
+      if (t.kind === 'payload') expect(t.probe, t.id).toBeUndefined()
+      else expect(() => new RegExp(t.probe!.match), t.id).not.toThrow()
     }
   })
 

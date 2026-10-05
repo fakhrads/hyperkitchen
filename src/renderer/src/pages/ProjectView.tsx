@@ -11,13 +11,14 @@ import type {
 } from '../../../shared/types'
 import { errorText, formatSize } from '../format'
 import { ProgressBar } from './Jobs'
+import { RecipeTab } from './RecipeTab'
 
 // Unpack or build jobs started from this window, by project path. Survives page switches.
 const projectJobs = new Map<string, string>()
 
 const ROM_EXTENSIONS = ['tgz', 'gz', 'tar', 'zip', 'bin', 'img']
 
-type Tab = 'partitions' | 'files' | 'props' | 'apks' | 'build'
+type Tab = 'partitions' | 'files' | 'props' | 'apks' | 'recipe' | 'build'
 
 export function ProjectView({
   project,
@@ -35,6 +36,7 @@ export function ProjectView({
   const [input, setInput] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('partitions')
+  const [pendingDebloat, setPendingDebloat] = useState<string[]>([])
   const [jobId, setJobId] = useState<string | null>(projectJobs.get(project.path) ?? null)
   const job = jobs.find((j) => j.id === jobId) ?? null
   const running = job?.status === 'running'
@@ -195,6 +197,7 @@ export function ProjectView({
                 ['files', 'Files'],
                 ['props', 'build.prop'],
                 ['apks', 'APKs'],
+                ['recipe', 'Recipe'],
                 ['build', 'Build']
               ] as const
             ).map(([id, label]) => (
@@ -211,7 +214,23 @@ export function ProjectView({
           {tab === 'partitions' && <PartitionsTab stock={stock} />}
           {tab === 'files' && <FilesTab projectPath={project.path} />}
           {tab === 'props' && <PropsTab stock={stock} />}
-          {tab === 'apks' && <ApksTab apks={inventory?.apks ?? []} />}
+          {tab === 'apks' && (
+            <ApksTab
+              apks={inventory?.apks ?? []}
+              onDebloat={(pkgs) => {
+                setPendingDebloat(pkgs)
+                setTab('recipe')
+              }}
+            />
+          )}
+          {tab === 'recipe' && (
+            <RecipeTab
+              projectPath={project.path}
+              stock={stock}
+              pendingDebloat={pendingDebloat}
+              onDebloatConsumed={() => setPendingDebloat([])}
+            />
+          )}
           {tab === 'build' && (
             <BuildTab
               projectPath={project.path}
@@ -220,7 +239,7 @@ export function ProjectView({
               onStart={(v, verify) => void startBuild(v, verify)}
             />
           )}
-          {!running && tab !== 'build' && <div style={{ marginTop: 22 }}>{chooser}</div>}
+          {!running && tab === 'partitions' && <div style={{ marginTop: 22 }}>{chooser}</div>}
         </>
       )}
     </div>
@@ -403,8 +422,15 @@ function PropsTab({ stock }: { stock: StockInfo }): React.JSX.Element {
 
 const MAX_ROWS = 500
 
-function ApksTab({ apks }: { apks: ApkInfo[] }): React.JSX.Element {
+function ApksTab({
+  apks,
+  onDebloat
+}: {
+  apks: ApkInfo[]
+  onDebloat: (packages: string[]) => void
+}): React.JSX.Element {
   const [filter, setFilter] = useState('')
+  const [picked, setPicked] = useState<Set<string>>(new Set())
   const [partition, setPartition] = useState('')
   const partitions = useMemo(() => [...new Set(apks.map((a) => a.partition))].sort(), [apks])
   // Signers by number of APKs: the platform key usually signs most of the system.
@@ -446,6 +472,13 @@ function ApksTab({ apks }: { apks: ApkInfo[] }): React.JSX.Element {
         <span className="sub" style={{ margin: 0 }} data-testid="apks-count">
           {rows.length} of {apks.length} APKs
         </span>
+        <button
+          disabled={!picked.size}
+          onClick={() => onDebloat([...picked])}
+          data-testid="apks-debloat"
+        >
+          Add {picked.size || ''} to debloat
+        </button>
       </div>
       <details style={{ marginBottom: 10 }}>
         <summary>{signers.length} distinct signers</summary>
@@ -463,6 +496,7 @@ function ApksTab({ apks }: { apks: ApkInfo[] }): React.JSX.Element {
       <table data-testid="apks-table">
         <thead>
           <tr>
+            <th />
             <th>Package</th>
             <th>Version</th>
             <th>Path</th>
@@ -473,6 +507,20 @@ function ApksTab({ apks }: { apks: ApkInfo[] }): React.JSX.Element {
         <tbody>
           {rows.slice(0, MAX_ROWS).map((a) => (
             <tr key={`${a.partition}/${a.path}`}>
+              <td>
+                {a.packageName && (
+                  <input
+                    type="checkbox"
+                    checked={picked.has(a.packageName)}
+                    onChange={(e) => {
+                      const next = new Set(picked)
+                      if (e.target.checked) next.add(a.packageName as string)
+                      else next.delete(a.packageName as string)
+                      setPicked(next)
+                    }}
+                  />
+                )}
+              </td>
               <td className="mono">
                 {a.packageName ?? <span className="error-text">{a.error ?? 'unknown'}</span>}
                 {a.overlayTarget ? <div className="sub">overlay for {a.overlayTarget}</div> : null}

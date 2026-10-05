@@ -1,3 +1,5 @@
+import type { OperationReport } from './recipe'
+
 // Types shared by main, worker, preload and renderer. Keep this file free of
 // Node or Electron imports so the renderer bundle can include it.
 
@@ -162,6 +164,8 @@ export interface BuildInfo {
   verity: VerityMode
   verityChanges: string[]
   recipeOperations: number
+  /** What each enabled recipe operation changed. */
+  operations: OperationReport[]
   partitions: BuildPartition[]
   /** Super image read back and checked against the stock layout and the built images. */
   superVerified: boolean
@@ -249,12 +253,16 @@ export interface ManifestTool {
   id: string
   /** File name on disk inside the platform (or common) bin dir. */
   file: string
-  kind: 'native' | 'jar'
+  /** native: runs on the host; jar: runs with Java; payload: copied into ROM packages only. */
+  kind: 'native' | 'jar' | 'payload'
   version: string
   license: string
   project: string
   neededFor: string
-  probe: { args: string[]; match: string }
+  /** Absent for payloads, which are never run on the host. */
+  probe?: { args: string[]; match: string }
+  /** Payload files that must keep the executable bit (fastboot for macOS/Linux). */
+  executable?: boolean
   artifacts: Partial<Record<PlatformKey | 'common', ManifestArtifact>>
 }
 

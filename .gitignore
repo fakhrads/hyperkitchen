@@ -29,3 +29,6 @@ resources/bin/*/
 *.jar
 *.ozip
 projects/
+
+# Built from installer/updater with `pnpm build-updater`
+resources/updater/

@@ -103,13 +103,14 @@ async function install(key, tools) {
     const art = t.artifacts[key]
     if (!art) continue
     const dest = join(dir, t.file)
+    mkdirSync(dirname(dest), { recursive: true })
     if (existsSync(dest) && stamp[t.id] === art.sha256) {
       console.log(`  ok   ${t.id} (cached)`)
       continue
     }
     const file = await fetchCached(art.url, art.sha256)
     extract(file, art, dest)
-    if (t.kind === 'native') chmodSync(dest, 0o755)
+    if (t.kind === 'native' || t.executable) chmodSync(dest, 0o755)
     stamp[t.id] = art.sha256
     console.log(`  new  ${t.id} ${t.version}`)
   }
@@ -124,6 +125,6 @@ for (const p of platforms)
   )
 await install(
   'common',
-  manifest.tools.filter((t) => t.kind === 'jar')
+  manifest.tools.filter((t) => t.kind === 'jar' || t.kind === 'payload')
 )
 console.log('done')

@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs'
-import { lstat, readdir, readFile, readlink, stat } from 'node:fs/promises'
+import { lstat, readdir, readFile, readlink, stat, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
+import { RecipeSchema, type Recipe } from '../shared/recipe'
 import type { BuildInfo, DirEntry, Inventory, StockInfo } from '../shared/types'
 import { openProject } from './projects'
 import { assertInside } from './safety'
@@ -116,4 +117,19 @@ export async function checkBuildParams(
   const project = await openProject(params.projectPath)
   if (!(await readStock(project.path))) throw new Error('unpack a stock ROM first')
   return { ...params, projectPath: project.path, generator }
+}
+
+/** recipe.json of a project, validated. */
+export async function readRecipe(projectPath: string): Promise<Recipe> {
+  const p = await openProject(projectPath)
+  return RecipeSchema.parse(JSON.parse(await readFile(join(p.path, 'recipe.json'), 'utf8')))
+}
+
+export async function saveRecipe(projectPath: string, raw: unknown): Promise<Recipe> {
+  const p = await openProject(projectPath)
+  const recipe = RecipeSchema.parse(raw)
+  const ids = recipe.operations.map((o) => o.id)
+  if (new Set(ids).size !== ids.length) throw new Error('operation ids must be unique')
+  await writeFile(join(p.path, 'recipe.json'), JSON.stringify(recipe, null, 2))
+  return recipe
 }

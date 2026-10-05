@@ -29,6 +29,11 @@ const api: HkApi = {
     inventory: (p) => ipcRenderer.invoke(IPC.stockInventory, p),
     listDir: (p, rel) => ipcRenderer.invoke(IPC.stockListDir, p, rel)
   },
+  recipe: {
+    get: (p) => ipcRenderer.invoke(IPC.recipeGet, p),
+    save: (p, r) => ipcRenderer.invoke(IPC.recipeSave, p, r),
+    catalog: () => ipcRenderer.invoke(IPC.recipeCatalog)
+  },
   builds: {
     list: (p) => ipcRenderer.invoke(IPC.buildsList, p),
     reveal: (p, id) => ipcRenderer.invoke(IPC.buildsReveal, p, id)

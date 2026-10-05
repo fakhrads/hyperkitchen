@@ -219,15 +219,75 @@ describe.runIf(haveBins)('build', () => {
     }
   }, 120_000)
 
-  it('refuses to build when the recipe has operations (M4)', async () => {
+  it('applies a recipe and the rebuilt images still match work/ file by file', async () => {
+    const { writeFile } = await import('node:fs/promises')
+    await writeFile(
+      join(project, 'recipe.json'),
+      JSON.stringify({
+        schema: 1,
+        operations: [
+          { id: 'rm', type: 'remove-paths', params: { paths: ['vendor/etc/fixture.txt'] } },
+          {
+            id: 'props',
+            type: 'set-props',
+            params: { file: 'system/system/build.prop', set: { 'ro.hk.test': '1' }, remove: [] }
+          },
+          { id: 'bloat', type: 'debloat', params: { packages: ['com.example.test'] } },
+          {
+            id: 'off',
+            type: 'remove-paths',
+            enabled: false,
+            params: { paths: ['vendor/build.prop'] }
+          }
+        ]
+      })
+    )
+    try {
+      const info = await build(ctx(), {
+        projectPath: project,
+        verity: 'vbmeta-flags',
+        verify: true,
+        generator: 't'
+      })
+      expect(info.status).toBe('done')
+      expect(info.recipeOperations).toBe(3)
+      expect(info.partitions.every((p) => p.treeVerified)).toBe(true)
+      expect(info.operations.map((o) => [o.id, o.removed, o.modified])).toEqual([
+        ['rm', ['vendor/etc/fixture.txt'], []],
+        ['props', [], ['system/system/build.prop']],
+        ['bloat', ['system/system/app/Test'], []]
+      ])
+      const work = join(project, 'work', 'fs')
+      expect(existsSync(join(work, 'vendor/etc/fixture.txt'))).toBe(false)
+      expect(existsSync(join(work, 'vendor/build.prop'))).toBe(true)
+      expect(readFileSync(join(work, 'system/system/build.prop'), 'utf8')).toContain('ro.hk.test=1')
+      expect(readFileSync(join(work, 'config/system_fs_config'), 'utf8')).not.toMatch(/Test\.apk/)
+      // stock/ is never touched by a recipe.
+      expect(existsSync(join(project, 'stock/fs/vendor/etc/fixture.txt'))).toBe(true)
+    } finally {
+      await writeFile(join(project, 'recipe.json'), JSON.stringify({ schema: 1, operations: [] }))
+    }
+  }, 120_000)
+
+  it('stops on an invalid recipe or a failing operation', async () => {
     const { writeFile } = await import('node:fs/promises')
     await writeFile(
       join(project, 'recipe.json'),
       JSON.stringify({ schema: 1, operations: [{ id: 'x' }] })
     )
     await expect(
-      build(ctx(), { projectPath: project, verity: 'fstab', verify: false, generator: 't' })
-    ).rejects.toThrow(/recipe operations/)
+      build(ctx(), { projectPath: project, verity: 'vbmeta-flags', verify: false, generator: 't' })
+    ).rejects.toThrow()
+    await writeFile(
+      join(project, 'recipe.json'),
+      JSON.stringify({
+        schema: 1,
+        operations: [{ id: 'gone', type: 'remove-paths', params: { paths: ['vendor/nope'] } }]
+      })
+    )
+    await expect(
+      build(ctx(), { projectPath: project, verity: 'vbmeta-flags', verify: false, generator: 't' })
+    ).rejects.toThrow(/gone .*does not exist/)
     await writeFile(join(project, 'recipe.json'), JSON.stringify({ schema: 1, operations: [] }))
-  })
+  }, 120_000)
 })

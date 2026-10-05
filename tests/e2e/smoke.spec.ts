@@ -149,3 +149,29 @@ test('builds a verified fastboot package from the unpacked ROM', async () => {
     fullPage: true
   })
 })
+
+test('debloats an app through the recipe and builds without it', async () => {
+  await page.getByTestId('tab-apks').click()
+  await page.getByTestId('apks-table').locator('input[type="checkbox"]').first().check()
+  await page.getByTestId('apks-debloat').click()
+  await expect(page.getByTestId('debloat-list')).toHaveValue('com.example.test')
+  await page.getByTestId('recipe-save').click()
+  await expect(page.getByTestId('recipe-save')).toBeDisabled()
+  const saved = JSON.parse(
+    readFileSync(join(tmp, 'projects', 'onyx unpack', 'recipe.json'), 'utf8')
+  ) as { operations: Array<{ type: string; params: { packages?: string[] } }> }
+  expect(saved.operations).toEqual([
+    expect.objectContaining({
+      type: 'debloat',
+      params: { packages: ['com.example.test'], force: false }
+    })
+  ])
+
+  await page.getByTestId('tab-build').click()
+  await page.getByTestId('verity-vbmeta').check()
+  await page.getByTestId('build-start').click()
+  const builds = page.locator('[data-testid^="build-2"][data-status="done"]')
+  await expect(builds).toHaveCount(2, { timeout: 120_000 })
+  const work = join(tmp, 'projects', 'onyx unpack', 'work', 'fs', 'system', 'system', 'app', 'Test')
+  expect(existsSync(work)).toBe(false)
+})

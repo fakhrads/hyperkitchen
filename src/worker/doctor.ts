@@ -45,6 +45,9 @@ async function checkTool(
   } catch {
     return { ...base, status: 'error', detail: `missing: ${file} (run "pnpm fetch-bins")` }
   }
+  if (tool.kind === 'payload' || !tool.probe) {
+    return { ...base, status: 'ok', detail: file, version: tool.version }
+  }
   if (tool.kind === 'jar' && !javaPath) {
     return { ...base, status: 'warn', detail: 'present, cannot probe without Java' }
   }
@@ -54,7 +57,7 @@ async function checkTool(
       : [file, tool.probe.args]
   try {
     const r = await run(cmd, args, { timeoutMs: 30000 })
-    const m = matchProbe(r.output, tool.probe.match)
+    const m = matchProbe(r.output, (tool.probe as { match: string }).match)
     if (!m.ok) {
       return {
         ...base,
@@ -186,11 +189,11 @@ export async function runDoctor(ctx: JobContext): Promise<DoctorReport> {
   }
   if (manifest && key) {
     const tools = manifest.tools.filter((t) =>
-      t.kind === 'jar' ? t.artifacts.common : t.artifacts[key]
+      t.kind === 'native' ? t.artifacts[key] : t.artifacts.common
     )
     for (const [i, tool] of tools.entries()) {
       ctx.progress(0.1 + (0.7 * i) / tools.length, `Probing ${tool.id}`)
-      const dir = tool.kind === 'jar' ? env.commonBinDir : env.binDir
+      const dir = tool.kind === 'native' ? env.binDir : env.commonBinDir
       if (!dir) continue
       const c = await checkTool(tool, dir, java && java.major >= MIN_JAVA_MAJOR ? java.path : null)
       ctx.log(`${c.status.padEnd(5)} ${tool.id} ${c.version ?? ''}`)

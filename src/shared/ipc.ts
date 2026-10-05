@@ -12,6 +12,15 @@ import type {
   StockInfo
 } from './types'
 
+import type { Recipe } from './recipe'
+
+export interface PatchSetInfo {
+  id: string
+  title: string
+  description: string
+  targets: string[]
+}
+
 /** Channel names. One place so main and preload cannot drift apart. */
 export const IPC = {
   appInfo: 'app:info',
@@ -27,6 +36,9 @@ export const IPC = {
   stockInventory: 'stock:inventory',
   stockListDir: 'stock:list-dir',
   buildsList: 'builds:list',
+  recipeGet: 'recipe:get',
+  recipeSave: 'recipe:save',
+  recipeCatalog: 'recipe:catalog',
   buildsReveal: 'builds:reveal',
   jobsList: 'jobs:list',
   jobsStart: 'jobs:start',
@@ -61,6 +73,12 @@ export interface HkApi {
     inventory(projectPath: string): Promise<Inventory | null>
     /** rel is relative to stock/fs, e.g. "system/system/priv-app". */
     listDir(projectPath: string, rel: string): Promise<DirEntry[]>
+  }
+  recipe: {
+    get(projectPath: string): Promise<Recipe>
+    save(projectPath: string, recipe: Recipe): Promise<Recipe>
+    /** Available smali patch sets. */
+    catalog(): Promise<PatchSetInfo[]>
   }
   builds: {
     list(projectPath: string): Promise<BuildInfo[]>

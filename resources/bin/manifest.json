@@ -10,7 +10,9 @@
       "project": "https://github.com/sekaiacg/erofs-tools",
       "neededFor": "M3 (repack erofs)",
       "probe": {
-        "args": ["--version"],
+        "args": [
+          "--version"
+        ],
         "match": "mkfs\\.erofs \\(erofs-utils\\) (\\S+)"
       },
       "artifacts": {
@@ -43,7 +45,9 @@
       "project": "https://github.com/sekaiacg/erofs-tools",
       "neededFor": "M2 (unpack erofs)",
       "probe": {
-        "args": ["--version"],
+        "args": [
+          "--version"
+        ],
         "match": "extract\\.erofs:\\s+(\\S+)"
       },
       "artifacts": {
@@ -76,7 +80,9 @@
       "project": "https://github.com/sekaiacg/erofs-tools",
       "neededFor": "M3 (verify images)",
       "probe": {
-        "args": ["--version"],
+        "args": [
+          "--version"
+        ],
         "match": "fsck\\.erofs \\(erofs-utils\\) (\\S+)"
       },
       "artifacts": {
@@ -109,7 +115,9 @@
       "project": "https://github.com/sekaiacg/erofs-tools",
       "neededFor": "M2 (inspect erofs)",
       "probe": {
-        "args": ["--version"],
+        "args": [
+          "--version"
+        ],
         "match": "dump\\.erofs \\(erofs-utils\\) (\\S+)"
       },
       "artifacts": {
@@ -142,7 +150,9 @@
       "project": "https://github.com/ssut/payload-dumper-go",
       "neededFor": "M2 (OTA payload.bin)",
       "probe": {
-        "args": ["-h"],
+        "args": [
+          "-h"
+        ],
         "match": "Usage of"
       },
       "artifacts": {
@@ -175,7 +185,9 @@
       "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
       "neededFor": "M3 (super.img)",
       "probe": {
-        "args": ["--help"],
+        "args": [
+          "--help"
+        ],
         "match": "Logical Partition"
       },
       "artifacts": {
@@ -205,7 +217,9 @@
       "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
       "neededFor": "M3 (ext4 repack)",
       "probe": {
-        "args": ["-V"],
+        "args": [
+          "-V"
+        ],
         "match": "mke2fs (\\S+) \\("
       },
       "artifacts": {
@@ -235,7 +249,9 @@
       "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
       "neededFor": "M3 (ext4 repack)",
       "probe": {
-        "args": ["-h"],
+        "args": [
+          "-h"
+        ],
         "match": "e2fsdroid \\["
       },
       "artifacts": {
@@ -265,7 +281,9 @@
       "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
       "neededFor": "M3 (sparse images)",
       "probe": {
-        "args": ["-h"],
+        "args": [
+          "-h"
+        ],
         "match": "Usage: img2simg"
       },
       "artifacts": {
@@ -325,7 +343,9 @@
       "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
       "neededFor": "M2 (.new.dat.br)",
       "probe": {
-        "args": ["--version"],
+        "args": [
+          "--version"
+        ],
         "match": "brotli (\\S+)"
       },
       "artifacts": {
@@ -355,7 +375,9 @@
       "project": "https://github.com/ColdWindScholar/MIO-KITCHEN-SOURCE",
       "neededFor": "M2/M3 (zstd images)",
       "probe": {
-        "args": ["--version"],
+        "args": [
+          "--version"
+        ],
         "match": "Zstandard CLI .* v(\\S+),"
       },
       "artifacts": {
@@ -385,7 +407,9 @@
       "project": "https://github.com/REAndroid/APKEditor",
       "neededFor": "M7 (APK editor)",
       "probe": {
-        "args": ["-version"],
+        "args": [
+          "-version"
+        ],
         "match": "APKEditor version (\\S+),"
       },
       "artifacts": {
@@ -405,7 +429,9 @@
       "project": "https://github.com/iBotPeaches/Apktool",
       "neededFor": "M7/M8 (framework res)",
       "probe": {
-        "args": ["--version"],
+        "args": [
+          "--version"
+        ],
         "match": "^(\\d+\\.\\d+\\.\\d+)"
       },
       "artifacts": {
@@ -413,6 +439,114 @@
           "url": "https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar",
           "sha256": "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423",
           "archive": "raw"
+        }
+      }
+    },
+    {
+      "id": "fastboot-macos",
+      "file": "platform-tools/macos/fastboot",
+      "kind": "payload",
+      "version": "37.0.1",
+      "license": "Apache-2.0 (Android SDK Platform-Tools, see NOTICE.txt in the archive)",
+      "project": "https://developer.android.com/tools/releases/platform-tools",
+      "neededFor": "M3 packages (fastboot bundled in the flash scripts, like xiaomi.eu)",
+      "executable": true,
+      "artifacts": {
+        "common": {
+          "url": "https://dl.google.com/android/repository/platform-tools_r37.0.1-darwin.zip",
+          "sha256": "ee39ad5967e95c2a07f04dbcbde96b1a0c916ba376096db5d2f498b7727a5d1d",
+          "archive": "zip",
+          "member": "platform-tools/fastboot"
+        }
+      }
+    },
+    {
+      "id": "fastboot-linux",
+      "file": "platform-tools/linux/fastboot",
+      "kind": "payload",
+      "version": "37.0.1",
+      "license": "Apache-2.0 (Android SDK Platform-Tools, see NOTICE.txt in the archive)",
+      "project": "https://developer.android.com/tools/releases/platform-tools",
+      "neededFor": "M3 packages (fastboot bundled in the flash scripts, like xiaomi.eu)",
+      "executable": true,
+      "artifacts": {
+        "common": {
+          "url": "https://dl.google.com/android/repository/platform-tools_r37.0.1-linux.zip",
+          "sha256": "d230f13842f60f782a8645f9c813f8f845bf36089ea7289f28c48f17979313f1",
+          "archive": "zip",
+          "member": "platform-tools/fastboot"
+        }
+      }
+    },
+    {
+      "id": "fastboot-windows",
+      "file": "platform-tools/windows/fastboot.exe",
+      "kind": "payload",
+      "version": "37.0.1",
+      "license": "Apache-2.0 (Android SDK Platform-Tools, see NOTICE.txt in the archive)",
+      "project": "https://developer.android.com/tools/releases/platform-tools",
+      "neededFor": "M3 packages (fastboot bundled in the flash scripts, like xiaomi.eu)",
+      "executable": false,
+      "artifacts": {
+        "common": {
+          "url": "https://dl.google.com/android/repository/platform-tools_r37.0.1-win.zip",
+          "sha256": "45f4d63113e895ebde0c90f194099a4676b6ac653bd28d54314a9e022bbc1a99",
+          "archive": "zip",
+          "member": "platform-tools/fastboot.exe"
+        }
+      }
+    },
+    {
+      "id": "adbwinapi",
+      "file": "platform-tools/windows/AdbWinApi.dll",
+      "kind": "payload",
+      "version": "37.0.1",
+      "license": "Apache-2.0 (Android SDK Platform-Tools, see NOTICE.txt in the archive)",
+      "project": "https://developer.android.com/tools/releases/platform-tools",
+      "neededFor": "M3 packages (fastboot bundled in the flash scripts, like xiaomi.eu)",
+      "executable": false,
+      "artifacts": {
+        "common": {
+          "url": "https://dl.google.com/android/repository/platform-tools_r37.0.1-win.zip",
+          "sha256": "45f4d63113e895ebde0c90f194099a4676b6ac653bd28d54314a9e022bbc1a99",
+          "archive": "zip",
+          "member": "platform-tools/AdbWinApi.dll"
+        }
+      }
+    },
+    {
+      "id": "adbwinusbapi",
+      "file": "platform-tools/windows/AdbWinUsbApi.dll",
+      "kind": "payload",
+      "version": "37.0.1",
+      "license": "Apache-2.0 (Android SDK Platform-Tools, see NOTICE.txt in the archive)",
+      "project": "https://developer.android.com/tools/releases/platform-tools",
+      "neededFor": "M3 packages (fastboot bundled in the flash scripts, like xiaomi.eu)",
+      "executable": false,
+      "artifacts": {
+        "common": {
+          "url": "https://dl.google.com/android/repository/platform-tools_r37.0.1-win.zip",
+          "sha256": "45f4d63113e895ebde0c90f194099a4676b6ac653bd28d54314a9e022bbc1a99",
+          "archive": "zip",
+          "member": "platform-tools/AdbWinUsbApi.dll"
+        }
+      }
+    },
+    {
+      "id": "platform-tools-notice",
+      "file": "platform-tools/NOTICE.txt",
+      "kind": "payload",
+      "version": "37.0.1",
+      "license": "Apache-2.0 (Android SDK Platform-Tools, see NOTICE.txt in the archive)",
+      "project": "https://developer.android.com/tools/releases/platform-tools",
+      "neededFor": "M3 packages (fastboot bundled in the flash scripts, like xiaomi.eu)",
+      "executable": false,
+      "artifacts": {
+        "common": {
+          "url": "https://dl.google.com/android/repository/platform-tools_r37.0.1-darwin.zip",
+          "sha256": "ee39ad5967e95c2a07f04dbcbde96b1a0c916ba376096db5d2f498b7727a5d1d",
+          "archive": "zip",
+          "member": "platform-tools/NOTICE.txt"
         }
       }
     }

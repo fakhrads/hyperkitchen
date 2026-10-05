@@ -17,7 +17,10 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
 import { assertInside } from '../main/safety'
-import type { BuildInfo, StockInfo, VerityMode } from '../shared/types'
+import { RecipeSchema } from '../shared/recipe'
+import type { BuildInfo, Inventory, StockInfo, VerityMode } from '../shared/types'
+import { detectJava, MIN_JAVA_MAJOR } from './java'
+import { applyRecipe } from './recipe/apply'
 import { CancelledError, throwIfCancelled, type JobContext } from './context'
 import { readErofsSuper } from './formats/erofs'
 import { LP_HEADER_FLAG_VIRTUAL_AB_DEVICE, LP_SECTOR_SIZE, readLpMetadata } from './formats/lp'
@@ -184,10 +187,10 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
     throw new Error('unpack a stock ROM first')
   }
   if (!stock.super) throw new Error('the stock ROM has no super partition layout')
-  const recipe = JSON.parse(await readFile(join(project, 'recipe.json'), 'utf8')) as {
-    operations?: unknown[]
-  }
-  const recipeOperations = recipe.operations?.length ?? 0
+  const recipe = RecipeSchema.parse(
+    JSON.parse(await readFile(join(project, 'recipe.json'), 'utf8'))
+  )
+  const recipeOperations = recipe.operations.filter((o) => o.enabled).length
   const bin = (n: string): string => join(ctx.env.binDir ?? '', n)
 
   const id = buildId()
@@ -216,23 +219,29 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
     verity: params.verity,
     verityChanges: [],
     recipeOperations,
+    operations: [],
     partitions: [],
     superVerified: false,
     scripts: [],
     warnings: []
   }
-  // 0 work, 1 partitions (mkfs + verify), 2 unused, 3 lpmake, 4 verify super,
+  // 0 work, 1 partitions (mkfs + verify), 2 recipe, 3 lpmake, 4 verify super,
   // 5 firmware + scripts, 6 checksums
-  const stages = new Stages(ctx, [3, params.verify ? 60 : 30, 0, 12, 10, 3, 12])
+  const stages = new Stages(ctx, [
+    3,
+    params.verify ? 60 : 30,
+    recipeOperations ? 10 : 0,
+    12,
+    10,
+    3,
+    12
+  ])
 
   try {
     log(
       `build ${id} for ${stock.device ?? '?'} ${stock.romVersion ?? ''}, verity mode ${params.verity}`
     )
-    log(`recipe: ${recipeOperations} operations`)
-    if (recipeOperations > 0) {
-      throw new Error('recipe operations are not supported yet (M4); clear recipe.json to build')
-    }
+    log(`recipe: ${recipeOperations} enabled operations`)
 
     // ---- 0: work/ from stock/
     stages.report(0, 0, 'preparing work/')
@@ -240,6 +249,30 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
     await mkdir(workDir)
     await cloneTree(join(stockDir, 'fs'), join(workDir, 'fs'), ctx.signal)
     stages.report(0, 1, 'work/ ready')
+
+    // ---- 2: recipe
+    if (recipeOperations) {
+      const inventory = JSON.parse(
+        await readFile(join(stockDir, 'inventory.json'), 'utf8')
+      ) as Inventory
+      const needsJava = recipe.operations.some((o) => o.enabled && o.type === 'patch')
+      const java = needsJava ? await detectJava(ctx.env) : null
+      if (needsJava && (!java || java.major < MIN_JAVA_MAJOR)) {
+        throw new Error(`smali patches need Java ${MIN_JAVA_MAJOR}+ (install it from the Doctor)`)
+      }
+      info.operations = await applyRecipe(recipe, {
+        workFs: join(workDir, 'fs'),
+        partitions: stock.partitions.filter((p) => p.extracted).map((p) => p.name),
+        apks: inventory.apks,
+        java: java?.path ?? null,
+        apktool: join(ctx.env.commonBinDir, 'apktool.jar'),
+        tmp,
+        signal: ctx.signal,
+        log,
+        progress: (f, step) => stages.report(2, f, step)
+      })
+      for (const r of info.operations) info.warnings.push(...r.warnings.map((w) => `${r.id}: ${w}`))
+    }
 
     // ---- 1 + 2: rebuild and verify partitions
     const layout = stock.super

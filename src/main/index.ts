@@ -18,8 +18,11 @@ import {
   listBuilds,
   listStockDir,
   readInventory,
-  readStock
+  readRecipe,
+  readStock,
+  saveRecipe
 } from './stock'
+import { PATCH_SETS } from '../worker/recipe/patchsets'
 
 // Test hooks: isolate user data and the default projects folder.
 if (process.env.HK_USER_DATA) app.setPath('userData', process.env.HK_USER_DATA)
@@ -158,6 +161,18 @@ function registerIpc(): void {
     listStockDir(z.string().min(1).parse(p), z.string().parse(rel))
   )
 
+  ipcMain.handle(IPC.recipeGet, (_e, p: unknown) => readRecipe(z.string().min(1).parse(p)))
+  ipcMain.handle(IPC.recipeSave, (_e, p: unknown, r: unknown) =>
+    saveRecipe(z.string().min(1).parse(p), r)
+  )
+  ipcMain.handle(IPC.recipeCatalog, () =>
+    PATCH_SETS.map((s) => ({
+      id: s.id,
+      title: s.title,
+      description: s.description,
+      targets: s.targets.map((t) => t.path)
+    }))
+  )
   ipcMain.handle(IPC.buildsList, (_e, p: unknown) => listBuilds(z.string().min(1).parse(p)))
   ipcMain.handle(IPC.buildsReveal, async (_e, p: unknown, id: unknown) => {
     shell.showItemInFolder(await buildDir(z.string().min(1).parse(p), z.string().parse(id)))

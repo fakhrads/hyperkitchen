@@ -9,6 +9,8 @@ files:
   - '!tests/*'
   - '!scripts/*'
   - '!resources/bin/**'
+  - '!resources/updater/**'
+  - '!installer/**'
   - '!.cache/**'
   - '!release/**'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
@@ -29,6 +31,8 @@ extraResources:
     filter: ['**/*', '!.stamp.json']
   - from: resources/bin/manifest.json
     to: bin/manifest.json
+  - from: resources/updater
+    to: updater
   - from: LICENSE
     to: LICENSE
   - from: THIRD_PARTY.md
