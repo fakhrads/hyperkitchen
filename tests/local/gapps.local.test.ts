@@ -1,5 +1,5 @@
-// GApps operation on a real ROM tree, followed by the privapp allowlist check. Not part of
-// `pnpm test`:
+// A recipe (default: GApps) on a clone of a real ROM tree, followed by the privapp allowlist
+// check. HK_RECIPE replaces the recipe, HK_JAVA enables smali patches. Not part of `pnpm test`:
 //   HK_PROJECT_DIR=<project> HK_GAPPS_ZIP=<MindTheGapps zip> HK_SCRATCH=<dir> \
 //     npx vitest run --config tests/local/vitest.config.ts tests/local/gapps.local.test.ts
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -46,8 +46,8 @@ it('adds MindTheGapps and passes the privapp check', async () => {
     partitions,
     apks: inv.apks,
     stockVersion: stock.romVersion,
-    java: null,
-    apktool: '',
+    java: process.env.HK_JAVA ?? null,
+    apktool: join(__dirname, '../../resources/bin/common/apktool.jar'),
     tmp: join(scratch, 'tmp'),
     signal: new AbortController().signal,
     log: (s) => void lines.push(s),

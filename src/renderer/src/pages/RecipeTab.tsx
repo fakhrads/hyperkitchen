@@ -162,33 +162,47 @@ export function RecipeTab({
 
       <h2>Patches (battery, notifications)</h2>
       <div className="panel">
-        {catalog.map((p) => {
-          const op = patchOn(p.id)
-          return (
-            <label key={p.id} style={{ display: 'block', marginBottom: 8 }}>
-              <input
-                type="checkbox"
-                checked={!!op?.enabled}
-                onChange={(e) => {
-                  if (op) upsert({ ...op, enabled: e.target.checked })
-                  else
-                    upsert({
-                      id: `patch-${p.id}`,
-                      type: 'patch',
-                      enabled: true,
-                      params: { patchSet: p.id }
-                    })
-                }}
-                data-testid={`patch-${p.id}`}
-              />{' '}
-              <strong>{p.title}</strong>
-              <div className="sub" style={{ margin: '2px 0 0 22px' }}>
-                {p.description} <span className="mono">({p.targets.join(', ')})</span>
-              </div>
-            </label>
-          )
-        })}
+        {catalog
+          .filter((p) => p.id !== BRANDING_PATCH)
+          .map((p) => {
+            const op = patchOn(p.id)
+            return (
+              <label key={p.id} style={{ display: 'block', marginBottom: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={!!op?.enabled}
+                  onChange={(e) => {
+                    if (op) upsert({ ...op, enabled: e.target.checked })
+                    else
+                      upsert({
+                        id: `patch-${p.id}`,
+                        type: 'patch',
+                        enabled: true,
+                        params: { patchSet: p.id }
+                      })
+                  }}
+                  data-testid={`patch-${p.id}`}
+                />{' '}
+                <strong>{p.title}</strong>
+                <div className="sub" style={{ margin: '2px 0 0 22px' }}>
+                  {p.description} <span className="mono">({p.targets.join(', ')})</span>
+                </div>
+              </label>
+            )
+          })}
       </div>
+
+      <h2>Branding</h2>
+      <Branding
+        prop={find(BRANDING_PROP_OP)}
+        patch={patchOn(BRANDING_PATCH)}
+        onChange={(add, removeIds) =>
+          set([
+            ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
+            ...add
+          ])
+        }
+      />
 
       <h2>Import from a reference ROM (PureCN)</h2>
       <div className="panel" data-testid="import-panel">
@@ -443,6 +457,79 @@ export function RecipeTab({
         </tbody>
       </table>
     </>
+  )
+}
+
+const BRANDING_PATCH = 'branding-about'
+const BRANDING_PROP_OP = 'branding-prop'
+const BRAND_PROP = 'ro.hyperkitchen.rom.display'
+
+function Branding({
+  prop,
+  patch,
+  onChange
+}: {
+  prop: Operation | undefined
+  patch: Operation | undefined
+  onChange: (add: Operation[], removeIds: string[]) => void
+}): React.JSX.Element {
+  const current = prop?.type === 'set-props' ? (prop.params.set[BRAND_PROP] ?? '') : ''
+  const [name, setName] = useState(current)
+  const on = !!patch?.enabled && !!prop?.enabled
+  return (
+    <div className="panel" data-testid="branding-panel">
+      <p className="sub" style={{ margin: '0 0 8px' }}>
+        Shows &quot;&lt;HyperOS version&gt; | &lt;name&gt;&quot; on the About phone version card and
+        the device details page. The name is the {BRAND_PROP} prop in product/etc/build.prop;
+        Settings gets a small helper class and two calls to it (patch set {BRANDING_PATCH}, keeps
+        the stock signature). The version strings other code parses are not changed.
+      </p>
+      <div className="row">
+        <input
+          type="text"
+          placeholder="ROM name, e.g. HyperKitchen 1.0"
+          value={name}
+          maxLength={60}
+          onChange={(e) => setName(e.target.value)}
+          data-testid="branding-name"
+        />
+        <button
+          className="primary"
+          disabled={!name.trim() || /[\n=]/.test(name)}
+          onClick={() =>
+            onChange(
+              [
+                {
+                  id: BRANDING_PROP_OP,
+                  type: 'set-props',
+                  enabled: true,
+                  params: {
+                    file: 'product/etc/build.prop',
+                    set: { [BRAND_PROP]: name.trim() },
+                    remove: []
+                  }
+                },
+                {
+                  id: patch?.id ?? `patch-${BRANDING_PATCH}`,
+                  type: 'patch',
+                  enabled: true,
+                  params: { patchSet: BRANDING_PATCH }
+                }
+              ],
+              []
+            )
+          }
+          data-testid="branding-apply"
+        >
+          {on ? 'Update' : 'Add'}
+        </button>
+        {(prop || patch) && (
+          <button onClick={() => onChange([], [BRANDING_PROP_OP, ...(patch ? [patch.id] : [])])}>
+            Remove
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 

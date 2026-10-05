@@ -87,7 +87,8 @@ export async function walkFiles(
 
 /**
  * Smali compared line by line, ignoring blank lines, the alignment `nop` the assembler adds or
- * drops before a switch/array payload, and default static field values (not stored in dex).
+ * drops before a switch/array payload, default static field values (not stored in dex) and the
+ * const-string/jumbo form the assembler chooses by string index.
  * Every other line must be identical.
  */
 export function normalizeSmali(text: string): string {
@@ -98,6 +99,8 @@ export function normalizeSmali(text: string): string {
     .map((l) =>
       /^\.field .*\bstatic\b/.test(l) ? l.replace(/ = (?:false|0x0L?|0|null|0\.0f?)$/, '') : l
     )
+    // The assembler picks const-string/jumbo when the string index needs 32 bits.
+    .map((l) => l.replace(/^(\s*)const-string\/jumbo /, '$1const-string '))
   return lines
     .filter(
       (l, i) =>
@@ -106,6 +109,17 @@ export function normalizeSmali(text: string): string {
         )
     )
     .join('\n')
+}
+
+/** The first differing line of two texts, for error messages. */
+export function firstDifference(a: string, b: string): string {
+  const x = a.split('\n')
+  const y = b.split('\n')
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if (x[i] !== y[i])
+      return `line ${i + 1}: expected ${JSON.stringify(x[i] ?? '<end>')}, got ${JSON.stringify(y[i] ?? '<end>')}`
+  }
+  return 'no difference'
 }
 
 /** The same lines in any order (values XML after aapt2 sorted enum/flag items). */
@@ -260,7 +274,7 @@ export async function rebuildDecoded(opts: {
       const [a, b] = await Promise.all([readFile(f, 'utf8'), readFile(g, 'utf8')])
       if (normalizeSmali(a) !== normalizeSmali(b)) {
         throw new Error(
-          `${label}: rebuilt dex does not match the edited smali in ${relative(dec, f)}`
+          `${label}: rebuilt dex does not match the edited smali in ${relative(dec, f)}: ${firstDifference(normalizeSmali(a), normalizeSmali(b))}`
         )
       }
     }

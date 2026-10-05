@@ -272,7 +272,10 @@ describe('smali rules', () => {
     for (const s of PATCH_SETS) {
       for (const t of s.targets) {
         expect(t.verifiedSha256).toMatch(/^[0-9a-f]{64}$/)
-        for (const r of t.rules) if (r.kind !== 'stub') expect(r.expect).toBeGreaterThan(0)
+        for (const r of t.rules) {
+          if (r.kind === 'add-class') expect(r.smali).toContain(`.class public final L${r.cls};`)
+          else if (r.kind !== 'stub') expect(r.expect).toBeGreaterThan(0)
+        }
       }
     }
   })

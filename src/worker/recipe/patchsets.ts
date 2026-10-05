@@ -20,6 +20,20 @@ export type SmaliRule =
   | { kind: 'delete'; cls: string; method: string; pattern: string; expect: number }
   /** Replace a substring inside every const-string literal of the whole file. */
   | { kind: 'string-replace'; from: string; to: string; expect: number }
+  /**
+   * After `invoke-* {...}, <call>` + `move-result-object vX`, pass vX through a static
+   * `helper` (String -> String): `invoke-static {vX}, <helper>` + `move-result-object vX`.
+   */
+  | {
+      kind: 'wrap-call'
+      cls: string
+      method: string
+      call: string
+      helper: string
+      expect: number
+    }
+  /** Add a new class, in the same dex as `nextTo` (the class must not exist yet). */
+  | { kind: 'add-class'; cls: string; nextTo: string; smali: string }
 
 export interface PatchTarget {
   /** Tree path of the jar or APK. */
@@ -47,6 +61,63 @@ const intl = (cls: string, method: string, expect = 1): SmaliRule => ({
   value: 1,
   expect
 })
+
+/**
+ * Helper added to Settings by the branding patch set: `apply(s)` returns s, or
+ * "s | <ro.hyperkitchen.rom.display>" when that prop is set. Written in the form baksmali prints
+ * it (labels :cond_N) so the rebuild gate compares it line for line.
+ */
+export const BRAND_PROP = 'ro.hyperkitchen.rom.display'
+const BRAND_CLASS = 'com/hyperkitchen/Brand'
+const BRAND_APPLY = `L${BRAND_CLASS};->apply(Ljava/lang/String;)Ljava/lang/String;`
+const BRAND_SMALI = [
+  `.class public final L${BRAND_CLASS};`,
+  '.super Ljava/lang/Object;',
+  '.source "Brand.java"',
+  '',
+  '',
+  '# direct methods',
+  '.method public static apply(Ljava/lang/String;)Ljava/lang/String;',
+  '    .locals 2',
+  '',
+  '    if-eqz p0, :cond_0',
+  '',
+  `    const-string v0, "${BRAND_PROP}"`,
+  '',
+  '    const-string v1, ""',
+  '',
+  '    invoke-static {v0, v1}, Landroid/os/SystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;',
+  '',
+  '    move-result-object v0',
+  '',
+  '    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z',
+  '',
+  '    move-result v1',
+  '',
+  '    if-nez v1, :cond_0',
+  '',
+  '    new-instance v1, Ljava/lang/StringBuilder;',
+  '',
+  '    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V',
+  '',
+  '    invoke-virtual {v1, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;',
+  '',
+  '    const-string p0, " | "',
+  '',
+  '    invoke-virtual {v1, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;',
+  '',
+  '    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;',
+  '',
+  '    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;',
+  '',
+  '    move-result-object p0',
+  '',
+  '    :cond_0',
+  '    return-object p0',
+  '.end method',
+  ''
+].join('\n')
+const ABOUT = 'com/android/settings/device/MiuiAboutPhoneUtils'
 
 export const PATCH_SETS: PatchSet[] = [
   {
@@ -277,6 +348,41 @@ export const PATCH_SETS: PatchSet[] = [
           { kind: 'stub', cls: 'f/h$c', method: 'run()V', returns: 'void' },
           { kind: 'stub', cls: 'f/h$a', method: 'run()V', returns: 'void' },
           { kind: 'stub', cls: 'e0/c0', method: 'c2()Z', returns: 1 }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'branding-about',
+    title: 'ROM name in About phone',
+    description: `Shows "<version> | <ROM name>" on the About phone version card and the device details page. The name comes from the ${BRAND_PROP} prop, so it can change without patching again. Only the two places that display the version are touched; the version strings other code parses stay as they are.`,
+    targets: [
+      {
+        path: 'system_ext/priv-app/Settings/Settings.apk',
+        verifiedSha256: '667d4f2b0c2e3aeb6c232fe229048f9917ae141969aaee243ccb70e3a320ef14',
+        rules: [
+          {
+            kind: 'add-class',
+            cls: BRAND_CLASS,
+            nextTo: 'com/android/settings/device/MiuiVersionCard',
+            smali: BRAND_SMALI
+          },
+          {
+            kind: 'wrap-call',
+            cls: 'com/android/settings/device/MiuiVersionCard',
+            method: 'refreshVersionName()V',
+            call: `L${ABOUT};->getSimpleOSVersion(Landroid/content/Context;)Ljava/lang/String;`,
+            helper: BRAND_APPLY,
+            expect: 1
+          },
+          {
+            kind: 'wrap-call',
+            cls: 'com/android/settings/device/MiuiMyDeviceDetailSettings',
+            method: 'setVersionCode()V',
+            call: `L${ABOUT};->addVersionSuffix(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;`,
+            helper: BRAND_APPLY,
+            expect: 1
+          }
         ]
       }
     ]

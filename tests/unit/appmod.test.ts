@@ -375,3 +375,50 @@ describe('adb package', () => {
     expect(bat).not.toMatch(/%adb% uninstall/)
   })
 })
+
+describe('smali gate normalization', () => {
+  it('treats const-string and const-string/jumbo alike', async () => {
+    const { normalizeSmali } = await import('../../src/worker/appmod/rebuild')
+    expect(normalizeSmali('    const-string/jumbo v0, "x"')).toBe(
+      normalizeSmali('    const-string v0, "x"')
+    )
+    expect(normalizeSmali('    const-string v0, "x"')).not.toBe(
+      normalizeSmali('    const-string v0, "y"')
+    )
+  })
+})
+
+describe('wrap-call rule', () => {
+  it('passes a call result through a helper and counts matches', async () => {
+    const { applyRule } = await import('../../src/worker/recipe/patcher')
+    const call = 'Lcom/x/U;->ver(Landroid/content/Context;)Ljava/lang/String;'
+    const helper = 'Lcom/hyperkitchen/Brand;->apply(Ljava/lang/String;)Ljava/lang/String;'
+    const cls = [
+      '.method public refresh()V',
+      '    .locals 1',
+      '',
+      `    invoke-static {v0}, ${call}`,
+      '',
+      '    move-result-object v0',
+      '',
+      '    iput-object v0, p0, Lcom/x/Card;->name:Ljava/lang/String;',
+      '',
+      '    return-void',
+      '.end method',
+      ''
+    ].join('\n')
+    const rule = {
+      kind: 'wrap-call' as const,
+      cls: 'com/x/Card',
+      method: 'refresh()V',
+      call,
+      helper,
+      expect: 1
+    }
+    const out = applyRule(cls, rule)
+    expect(out).toContain(
+      `    move-result-object v0\n\n    invoke-static {v0}, ${helper}\n\n    move-result-object v0\n\n    iput-object`
+    )
+    expect(() => applyRule(cls, { ...rule, expect: 2 })).toThrow(/1 matches, expected 2/)
+  })
+})

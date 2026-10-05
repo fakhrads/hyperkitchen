@@ -11,7 +11,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { basename, join, posix } from 'node:path'
+import { basename, dirname, join, posix } from 'node:path'
 import {
   decode,
   decodeArgs,
@@ -74,7 +74,7 @@ function stubBody(header: string, returns: 'void' | 0 | 1): string {
 /** Apply one rule to a smali text; returns the new text. Throws on a count mismatch. */
 export function applyRule(
   text: string,
-  rule: Exclude<SmaliRule, { kind: 'string-replace' }>
+  rule: Exclude<SmaliRule, { kind: 'string-replace' } | { kind: 'add-class' }>
 ): string {
   const { start, end } = methodRange(text, rule.method)
   const header = text.slice(start, text.indexOf('\n', start))
@@ -104,6 +104,18 @@ export function applyRule(
         count++
         return `${ind}const/4 ${reg}, 0x${rule.value}\n\n${all}`
       })
+      break
+    case 'wrap-call':
+      body = body.replace(
+        new RegExp(
+          `^([ \\t]*)(invoke-[a-z/-]+ \\{[^}]*\\}, ${esc(rule.call)}[ \\t]*\\n(?:[ \\t]*\\n)*[ \\t]*move-result-object ([vp]\\d+))[ \\t]*$`,
+          'gm'
+        ),
+        (all, ind: string, _call, reg: string) => {
+          count++
+          return `${all}\n\n${ind}invoke-static {${reg}}, ${rule.helper}\n\n${ind}move-result-object ${reg}`
+        }
+      )
       break
     case 'delete':
       body = body.replace(new RegExp(rule.pattern, 'g'), () => {
@@ -195,7 +207,17 @@ export async function patchTarget(
   const touched = new Set<string>()
   for (const rule of rules) {
     throwIfCancelled(env.signal)
-    if (rule.kind === 'string-replace') {
+    if (rule.kind === 'add-class') {
+      const { dir } = await findClass(dec, rule.nextTo)
+      const f = join(dec, dir, `${rule.cls}.smali`)
+      for (const d of await smaliDirs(dec)) {
+        if (existsSync(join(dec, d, `${rule.cls}.smali`)))
+          throw new Error(`add-class: ${rule.cls} already exists`)
+      }
+      await mkdir(dirname(f), { recursive: true })
+      await writeFile(f, rule.smali)
+      touched.add(dir)
+    } else if (rule.kind === 'string-replace') {
       let count = 0
       for (const d of await smaliDirs(dec)) {
         for (const f of await walkFiles(join(dec, d), (n) => n.endsWith('.smali'))) {
