@@ -52,6 +52,8 @@ export interface PatchSet {
 const BUILD = 'Lmiui/os/Build;->IS_INTERNATIONAL_BUILD:Z'
 const GLOBAL = 'Lmiui/os/Build;->IS_GLOBAL_BUILD:Z'
 const MIUI_SERVICES = 'system_ext/framework/miui-services.jar'
+const SERVICES = 'system/system/framework/services.jar'
+const SERVICES_SHA = '37d4e57a9753441264128ded9fbe7ecf6f810c91ea0126457010fecb9a521e9a'
 const MIUI_SERVICES_SHA = '0cd1ee6229a54618d88702c6e96521c3e746bb8da1f28a4df118f642de8ec4dc'
 const intl = (cls: string, method: string, expect = 1): SmaliRule => ({
   kind: 'force-sget',
@@ -382,6 +384,38 @@ export const PATCH_SETS: PatchSet[] = [
             call: `L${ABOUT};->addVersionSuffix(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;`,
             helper: BRAND_APPLY,
             expect: 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'disable-secure-flag',
+    title: 'Allow screenshots in apps that block them (FLAG_SECURE)',
+    description:
+      'OPTIONAL, off by default. Makes the window manager ignore FLAG_SECURE so screenshots and screen recording work everywhere, including banking and DRM apps. This removes a protection apps opt into to keep sensitive screens off recordings; turn it on only for your own device and know what it weakens. DRM video (Widevine L1) is not affected by this.',
+    targets: [
+      {
+        path: SERVICES,
+        verifiedSha256: SERVICES_SHA,
+        rules: [
+          {
+            kind: 'stub',
+            cls: 'com/android/server/wm/WindowState',
+            method: 'isSecureLocked()Z',
+            returns: 0
+          }
+        ]
+      },
+      {
+        path: MIUI_SERVICES,
+        verifiedSha256: MIUI_SERVICES_SHA,
+        rules: [
+          {
+            kind: 'stub',
+            cls: 'com/android/server/wm/WindowManagerServiceImpl',
+            method: 'notAllowCaptureDisplay(Lcom/android/server/wm/RootWindowContainer;I)Z',
+            returns: 0
           }
         ]
       }

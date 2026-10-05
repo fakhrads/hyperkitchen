@@ -104,8 +104,12 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   recovery partition or the bootloader firmware.
 - **Recipe**: debloat, build.prop edits, CN Google services unlock and smali
   patch sets (notifications, Greezer, PowerKeeper, Joyose), with a PureCN
-  preset. Smali patches keep the original APK signature blocks; Android does
-  not verify APKs on system partitions, so the apps keep their identity.
+  preset, plus an optional, default-off FLAG_SECURE patch that lets you take
+  screenshots in apps that block them (it weakens a protection those apps opt
+  into). Smali patches keep the original APK signature blocks; Android does not
+  verify APKs on system partitions, so the apps keep their identity. There is
+  no framework-wide signature-verification bypass: the kitchen keeps real
+  signatures instead.
 - **GApps**: a MindTheGapps zip you download is added to `product` and
   `system_ext` following its own installer's rules; apps the ROM already has
   with the same signer and an equal or newer version stay, the CN Play Store
