@@ -32,6 +32,16 @@ are in that repository under `bin/licenses/`.
 |---|---|---|---|
 | APKEditor | 1.4.9 | Apache-2.0 | https://github.com/REAndroid/APKEditor |
 | Apktool | 3.0.3 | Apache-2.0 | https://github.com/iBotPeaches/Apktool |
+| apksigner | 0.9, from Android SDK Build-Tools 37.0.0 (`lib/apksigner.jar`) | Apache-2.0 (NOTICE.txt in the build-tools archive) | https://developer.android.com/tools/apksigner |
+
+## Copied into generated packages
+
+| Component | Version | License | Source |
+|---|---|---|---|
+| fastboot, adb (macOS, Linux, Windows) with AdbWinApi.dll, AdbWinUsbApi.dll | Android SDK Platform-Tools 37.0.1 | Apache-2.0 (the archive's NOTICE.txt is copied next to them) | https://developer.android.com/tools/releases/platform-tools |
+
+fastboot goes into ROM packages; adb into the adb install packages of app mods. HyperKitchen
+never runs either of them.
 
 ## Downloaded on request
 

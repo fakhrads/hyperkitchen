@@ -200,6 +200,7 @@ export type JobKind =
   | 'mod-save'
   | 'mod-search'
   | 'mod-export'
+  | 'mod-adb'
 
 export type JobStatus = 'running' | 'done' | 'failed' | 'cancelled'
 

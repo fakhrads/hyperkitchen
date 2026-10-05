@@ -6,9 +6,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { OperationSchema } from '../../src/shared/recipe'
+import { renderAdbBatch, renderAdbScript } from '../../src/worker/appmod/adbpack'
 import { arscPackageIds } from '../../src/worker/appmod/frameworks'
 import { applyOverlay, diffDecoded } from '../../src/worker/appmod/mod'
 import { classify, entryOf, publicIdChange, sameLineSet } from '../../src/worker/appmod/rebuild'
+import { keytoolFor, parseVerify } from '../../src/worker/appmod/sign'
 import { listMethods, stubMethod, stubValues } from '../../src/worker/appmod/smali'
 import {
   escapeString,
@@ -321,5 +323,55 @@ describe('frameworks and recipe', () => {
     expect(() =>
       OperationSchema.parse({ id: 'm', type: 'app-mod', params: { mod: '../x' } })
     ).toThrow()
+  })
+})
+
+describe('adb package', () => {
+  const verifyOut = [
+    'Verifies',
+    'Verified using v1 scheme (JAR signing): false',
+    'Verified using v2 scheme (APK Signature Scheme v2): true',
+    'Verified using v3 scheme (APK Signature Scheme v3): true',
+    'Number of signers: 1',
+    'V3.0 Signer: certificate DN: CN=HyperKitchen project x',
+    `V3.0 Signer: certificate SHA-256 digest: ${'ab'.repeat(32)}`
+  ].join('\n')
+
+  it('reads apksigner verify output', () => {
+    expect(parseVerify(verifyOut)).toEqual({ certSha256: 'ab'.repeat(32), schemes: ['v2', 'v3'] })
+    expect(() => parseVerify('DOES NOT VERIFY\nERROR: digest mismatch')).toThrow(/verify/)
+    expect(() => parseVerify(verifyOut.replace('signers: 1', 'signers: 2'))).toThrow(/one signer/)
+  })
+
+  it('finds keytool next to java', () => {
+    expect(keytoolFor('/opt/jre/bin/java')).toBe('/opt/jre/bin/keytool')
+    expect(keytoolFor('java')).toBe('keytool')
+  })
+
+  it('writes scripts that check the device, ask, and explain signer conflicts', async () => {
+    const o = {
+      device: 'onyx',
+      packageName: 'com.android.fileexplorer',
+      apk: "it's.apk",
+      generator: 'HK test'
+    }
+    for (const os of ['macos', 'linux'] as const) {
+      const sh = renderAdbScript({ ...o, os })
+      const f = join(tmp, `${os}.sh`)
+      await writeFile(f, sh)
+      expect(spawnSync('sh', ['-n', f]).status).toBe(0)
+      expect(sh).toContain(`ADB='bin/${os}/adb'`)
+      expect(sh).toContain("install -r 'it'\\''s.apk'")
+      expect(sh).toContain('[ "$dev" = \'onyx\' ]')
+      expect(sh).toContain('UPDATE_INCOMPATIBLE')
+      expect(sh).toContain('adb uninstall com.android.fileexplorer')
+      expect(sh).not.toMatch(/\$ADB \$OPTS uninstall/) // never uninstalls by itself
+      expect(sh.includes('xattr -d com.apple.quarantine')).toBe(os === 'macos')
+    }
+    const bat = renderAdbBatch(o)
+    expect(bat).toContain('bin\\windows\\adb.exe')
+    expect(bat).toContain('install -r "it\'s.apk"')
+    expect(bat.split('\r\n').every((l) => !l.includes('\n'))).toBe(true)
+    expect(bat).not.toMatch(/%adb% uninstall/)
   })
 })

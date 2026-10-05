@@ -51,7 +51,7 @@ const api: HkApi = {
     strings: (p, id, values) => ipcRenderer.invoke(IPC.modsStrings, p, id, values),
     setString: (p, id, values, name, value) =>
       ipcRenderer.invoke(IPC.modsSetString, p, id, values, name, value),
-    reveal: (p, id) => ipcRenderer.invoke(IPC.modsReveal, p, id)
+    reveal: (p, id, which) => ipcRenderer.invoke(IPC.modsReveal, p, id, which)
   },
   jobs: {
     list: () => ipcRenderer.invoke(IPC.jobsList),

@@ -149,7 +149,8 @@ export interface HkApi {
       name: string,
       value: string | null
     ): Promise<StringResInfo[]>
-    reveal(projectPath: string, id: string): Promise<void>
+    /** Show mods/<id>/out (ROM-ready APK) or mods/<id>/adb-package. */
+    reveal(projectPath: string, id: string, which: 'out' | 'adb-package'): Promise<void>
   }
   jobs: {
     list(): Promise<JobState[]>

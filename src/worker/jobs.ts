@@ -5,7 +5,14 @@ import { installManagedJre } from './java'
 import { run } from './spawn'
 import { unpack } from './unpack'
 import { build } from './build'
-import { modCreateJob, modExportJob, modOpenJob, modSaveJob, modSearchJob } from './appmod/jobs'
+import {
+  modAdbJob,
+  modCreateJob,
+  modExportJob,
+  modOpenJob,
+  modSaveJob,
+  modSearchJob
+} from './appmod/jobs'
 
 /**
  * Self-test: exercises progress, logging, a real child process and cancel.
@@ -53,5 +60,6 @@ export const handlers: Record<JobKind, JobHandler> = {
   'mod-open': (ctx, p) => modOpenJob(ctx, p as Parameters<typeof modOpenJob>[1]),
   'mod-save': (ctx, p) => modSaveJob(ctx, p as Parameters<typeof modSaveJob>[1]),
   'mod-search': (ctx, p) => modSearchJob(ctx, p as Parameters<typeof modSearchJob>[1]),
-  'mod-export': (ctx, p) => modExportJob(ctx, p as Parameters<typeof modExportJob>[1])
+  'mod-export': (ctx, p) => modExportJob(ctx, p as Parameters<typeof modExportJob>[1]),
+  'mod-adb': (ctx, p) => modAdbJob(ctx, p as Parameters<typeof modAdbJob>[1])
 }

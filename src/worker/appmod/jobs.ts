@@ -1,13 +1,18 @@
 // Worker jobs of the app editor. Params are validated in main (ModJobSchemas) before a job
 // starts.
 
-import { readFile, mkdir, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import type { JobContext } from '../context'
 import { throwIfCancelled } from '../context'
 import { detectJava } from '../java'
 import { buildMod, createMod, modPaths, openMod, readMod, saveMod, type ModEnv } from './mod'
+import { readManifest } from '../formats/axml'
+import { ZipFile } from '../formats/zip'
+import { writeAdbPackage } from './adbpack'
 import { walkFiles } from './rebuild'
+import { ensureProjectKey, signApk } from './sign'
 
 async function modEnv(ctx: JobContext, projectPath: string): Promise<ModEnv> {
   const java = await detectJava(ctx.env)
@@ -130,4 +135,85 @@ export async function modExportJob(
   )
   ctx.log(`written ${out}`)
   return { path: out, replaced: r.replaced, added: r.added }
+}
+
+/**
+ * adb install package: the mod built onto the stock APK, re-signed with the project key, plus
+ * adb and scripts the user runs. Refused for jars and for apps with a sharedUserId (their UID
+ * is shared with apps signed by Xiaomi, so another key can never be installed).
+ */
+export async function modAdbJob(
+  ctx: JobContext,
+  p: { projectPath: string; id: string; generator: string }
+): Promise<{ dir: string; apk: string; certSha256: string; scripts: string[] }> {
+  const env = await modEnv(ctx, p.projectPath)
+  const mod = await readMod(p.projectPath, p.id)
+  const paths = modPaths(p.projectPath, p.id)
+  if (!mod.target.endsWith('.apk')) throw new Error('only APKs can be installed with adb')
+  const stockApk = join(paths.stockFs, mod.target)
+  const z = await ZipFile.open(stockApk)
+  let manifest
+  try {
+    const m = await z.read('AndroidManifest.xml')
+    if (!m) throw new Error(`${mod.target} has no manifest`)
+    manifest = readManifest(m)
+  } finally {
+    await z.close()
+  }
+  if (!manifest.packageName) throw new Error(`${mod.target}: no package name`)
+  if (manifest.sharedUserId) {
+    throw new Error(
+      `${manifest.packageName} uses sharedUserId ${manifest.sharedUserId}; an app re-signed with another key can never join that UID, so it cannot be installed with adb. Use the recipe and a ROM build.`
+    )
+  }
+  const signer = join(ctx.env.commonBinDir, 'apksigner.jar')
+  if (!existsSync(signer)) throw new Error('apksigner.jar is missing (run pnpm fetch-bins)')
+  let device: string | null = null
+  try {
+    device = (
+      JSON.parse(await readFile(join(p.projectPath, 'stock', 'stock.json'), 'utf8')) as {
+        device: string | null
+      }
+    ).device
+  } catch {
+    device = null
+  }
+
+  const dir = join(paths.dir, 'adb-package')
+  await rm(dir, { recursive: true, force: true })
+  await mkdir(dir, { recursive: true })
+  ctx.progress(null, 'decoding, applying and rebuilding')
+  const unsigned = join(paths.dir, 'work-adb.apk')
+  await buildMod(env, p.id, stockApk, unsigned, join(paths.dir, 'work'))
+  ctx.progress(null, 're-signing with the project key')
+  const key = await ensureProjectKey({
+    projectPath: p.projectPath,
+    java: env.java,
+    signal: ctx.signal,
+    log: (s) => ctx.log(s)
+  })
+  const apkName = `${manifest.packageName}-hk.apk`
+  const signed = await signApk({
+    java: env.java,
+    apksigner: signer,
+    key,
+    input: unsigned,
+    output: join(dir, apkName),
+    signal: ctx.signal
+  })
+  await rm(unsigned, { force: true })
+  await rm(join(dir, `${apkName}.idsig`), { force: true })
+  const pkg = await writeAdbPackage({
+    dir,
+    apkName,
+    commonBinDir: ctx.env.commonBinDir,
+    device,
+    packageName: manifest.packageName,
+    target: mod.target,
+    certSha256: signed.certSha256,
+    generator: p.generator
+  })
+  ctx.log(`${apkName}: signed (${signed.schemes.join(', ')}), certificate ${signed.certSha256}`)
+  ctx.log(`${manifest.packageName} signed with the project key gets no store or OTA updates`)
+  return { dir, apk: join(dir, apkName), certSha256: signed.certSha256, scripts: pkg.scripts }
 }

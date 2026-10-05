@@ -127,7 +127,8 @@ const JobStartSchema = z.object({
     'mod-open',
     'mod-save',
     'mod-search',
-    'mod-export'
+    'mod-export',
+    'mod-adb'
   ]),
   params: z.record(z.string(), z.unknown()).default({})
 })
@@ -259,9 +260,14 @@ function registerIpc(): void {
         S.nullable().parse(value)
       )
   )
-  ipcMain.handle(IPC.modsReveal, async (_e, p: unknown, id: unknown) => {
+  ipcMain.handle(IPC.modsReveal, async (_e, p: unknown, id: unknown, which: unknown) => {
     const proj = await openProject(S.parse(p))
-    const dir = join(proj.path, 'mods', ModIdSchema.parse(id), 'out')
+    const dir = join(
+      proj.path,
+      'mods',
+      ModIdSchema.parse(id),
+      z.enum(['out', 'adb-package']).parse(which)
+    )
     shell.showItemInFolder(dir)
   })
 
@@ -287,6 +293,7 @@ function registerIpc(): void {
     if (parsed.kind.startsWith('mod-')) {
       const kind = parsed.kind as ModJobKind
       const params = await checkModJob(kind, parsed.params)
+      if (kind === 'mod-adb') params.generator = `HyperKitchen ${app.getVersion()}`
       // One job per mod at a time (they share its cache); searches only read.
       if (
         kind !== 'mod-search' &&

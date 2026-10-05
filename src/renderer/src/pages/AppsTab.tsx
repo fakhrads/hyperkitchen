@@ -287,6 +287,20 @@ function ModEditor({
     const j = await job('building the modded APK', 'mod-export', { id: mod.id })
     if (j) setExported((j.result as { path: string }).path)
   }
+  const [adb, setAdb] = useState<{ apk: string; certSha256: string } | null>(null)
+  const adbPackage = async (): Promise<void> => {
+    if (
+      !window.confirm(
+        `Re-sign ${mod.packageName ?? mod.id} with the project key for adb install?\n\n` +
+          'The re-signed app is not Xiaomi-signed: it cannot replace the copy in the ROM, and it ' +
+          'gets no store or OTA updates. HyperKitchen only writes the APK and the scripts; you ' +
+          'run them.'
+      )
+    )
+      return
+    const j = await job('building the adb package', 'mod-adb', { id: mod.id })
+    if (j) setAdb(j.result as { apk: string; certSha256: string })
+  }
   const reset = async (): Promise<void> => {
     if (!window.confirm('Discard unsaved edits and reload the working copy from the saved mod?'))
       return
@@ -320,12 +334,42 @@ function ModEditor({
         >
           Build APK
         </button>
+        <button
+          disabled={busy || !summary.changes.length || !mod.target.endsWith('.apk')}
+          onClick={() => void adbPackage()}
+          title="Re-signed APK plus adb install scripts in mods/<id>/adb-package"
+          data-testid="mod-adb"
+        >
+          adb package
+        </button>
       </div>
+      {adb && (
+        <div className="panel" style={{ borderColor: 'var(--error)' }} data-testid="mod-adb-result">
+          <p className="error-text" style={{ margin: '0 0 6px' }}>
+            <strong>Re-signed with the project key</strong>: {mod.packageName} can no longer be
+            updated from the store or OTA, and it cannot replace the Xiaomi-signed copy that a
+            system app has in the ROM (adb install fails with UPDATE_INCOMPATIBLE).
+          </p>
+          <p className="sub" style={{ margin: 0 }}>
+            <span className="mono">{adb.apk}</span>, certificate SHA-256{' '}
+            <span className="mono">{adb.certSha256}</span>. Run{' '}
+            <span className="mono">macos_adb_install.sh</span>,{' '}
+            <span className="mono">linux_adb_install.sh</span> or{' '}
+            <span className="mono">windows_adb_install.bat</span> yourself; HyperKitchen never runs
+            adb.{' '}
+            <button onClick={() => void window.hk.mods.reveal(projectPath, mod.id, 'adb-package')}>
+              Show
+            </button>
+          </p>
+        </div>
+      )}
       {exported && (
         <p className="sub">
           Built <span className="mono">{exported}</span>. It keeps the stock signing block: it is
           for the ROM image (add the mod to the recipe and build), adb cannot install it.{' '}
-          <button onClick={() => void window.hk.mods.reveal(projectPath, mod.id)}>Show</button>
+          <button onClick={() => void window.hk.mods.reveal(projectPath, mod.id, 'out')}>
+            Show
+          </button>
         </p>
       )}
       <p className="sub" style={{ margin: '0 0 10px' }}>

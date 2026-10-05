@@ -114,6 +114,11 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   on. An `app-mod` recipe operation applies it at build time to a fresh decode,
   replaces only the changed dex (and the resources when they were edited),
   keeps the stock signing block, and decodes the result again to check it.
+  For a quick test on the phone, **adb package** writes the modded APK re-signed
+  with a per-project key (apksigner from build-tools, key made with keytool),
+  the platform-tools `adb` for macOS, Linux and Windows, and install scripts
+  that you run. A re-signed app gets no store or OTA updates and cannot replace
+  a Xiaomi-signed system app that is still in the ROM.
 
 Put the projects folder on a **case-sensitive** filesystem: Android trees can
 hold names that differ only in case. On macOS, an APFS (Case-sensitive) volume

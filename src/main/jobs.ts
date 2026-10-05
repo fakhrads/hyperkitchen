@@ -21,7 +21,8 @@ const TITLES: Record<JobKind, string> = {
   'mod-open': 'Decode app',
   'mod-save': 'Save app changes',
   'mod-search': 'Search app',
-  'mod-export': 'Build modded app'
+  'mod-export': 'Build modded app',
+  'mod-adb': 'Build adb install package'
 }
 
 const MAX_LOG_LINES = 5000

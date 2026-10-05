@@ -216,7 +216,12 @@ export const ModJobSchemas = {
       .default('')
       .refine((p) => !p.startsWith('/') && !p.split('/').includes('..'))
   }),
-  'mod-export': z.object({ projectPath: Project, id: Id })
+  'mod-export': z.object({ projectPath: Project, id: Id }),
+  'mod-adb': z.object({
+    projectPath: Project,
+    id: Id,
+    generator: z.string().default('HyperKitchen')
+  })
 } as const
 
 export type ModJobKind = keyof typeof ModJobSchemas
