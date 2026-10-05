@@ -3,7 +3,7 @@ import type { GappsZipInfo, MediaFileInfo, PatchSetInfo } from '../../../shared/
 import {
   mindTheGappsOps,
   purecnImportOps,
-  purecnPreset,
+  TEMPLATES,
   type ImportGroup
 } from '../../../shared/presets'
 import type { Operation, Recipe } from '../../../shared/recipe'
@@ -114,6 +114,28 @@ export function RecipeTab({
   const patchOn = (setId: string): Operation | undefined =>
     ops.find((o) => o.type === 'patch' && o.params.patchSet === setId)
 
+  const exportRecipe = async (): Promise<void> => {
+    const dest = await window.hk.dialog.saveFile('Export recipe', 'recipe.json', ['json'])
+    if (!dest) return
+    try {
+      if (dirty) await window.hk.recipe.save(projectPath, recipe)
+      await window.hk.recipe.export(projectPath, dest)
+    } catch (e) {
+      setError(errorText(e))
+    }
+  }
+  const importRecipe = async (): Promise<void> => {
+    const src = await window.hk.dialog.pickFile('Import recipe', ['json'])
+    if (!src) return
+    if (ops.length && !window.confirm('Replace the current recipe with the imported one?')) return
+    try {
+      const imported = await window.hk.recipe.import(projectPath, src)
+      setRecipe(imported)
+      setSaved(JSON.stringify(imported))
+    } catch (e) {
+      setError(errorText(e))
+    }
+  }
   const save = async (): Promise<void> => {
     setError(null)
     try {
@@ -139,18 +161,11 @@ export function RecipeTab({
             {ops.filter((o) => o.enabled).length} of {ops.length} operations enabled
             {dirty ? ' (unsaved)' : ''}
           </span>
-          <button
-            onClick={() => {
-              if (
-                ops.length &&
-                !window.confirm('Replace the current recipe with the PureCN preset?')
-              )
-                return
-              set(purecnPreset())
-            }}
-            data-testid="preset-purecn"
-          >
-            Use PureCN preset
+          <button onClick={() => void exportRecipe()} data-testid="recipe-export">
+            Export…
+          </button>
+          <button onClick={() => void importRecipe()} data-testid="recipe-import">
+            Import…
           </button>
           <button
             className="primary"
@@ -166,6 +181,46 @@ export function RecipeTab({
           a device until you boot the result.
         </p>
         {error && <p className="error-text">{error}</p>}
+      </div>
+
+      <h2>Templates</h2>
+      <div className="panel" data-testid="templates-panel">
+        <p className="sub" style={{ margin: '0 0 8px' }}>
+          A template fills the recipe with a ready-made set of operations. You can then add, remove
+          or disable anything before building.
+        </p>
+        {TEMPLATES.map((t) => (
+          <div key={t.id} style={{ marginBottom: 10 }}>
+            <div className="row">
+              <strong>{t.title}</strong>
+              <button
+                onClick={() => {
+                  const name =
+                    t.id === 'cn-to-global-daily'
+                      ? (window.prompt('ROM name for About phone (leave blank to skip):', '') ?? '')
+                      : ''
+                  if (
+                    ops.length &&
+                    !window.confirm(`Replace the current recipe with "${t.title}"?`)
+                  )
+                    return
+                  set(t.build({ romName: name }))
+                }}
+                data-testid={`template-${t.id}`}
+              >
+                Use this template
+              </button>
+            </div>
+            <div className="sub" style={{ margin: '2px 0 0' }}>
+              {t.description}
+            </div>
+            <ul className="sub" style={{ margin: '4px 0 0 18px' }}>
+              {t.followUp.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
 
       <h2>Patches (battery, notifications)</h2>

@@ -43,7 +43,9 @@ import {
   readInventory,
   readRecipe,
   readStock,
-  saveRecipe
+  saveRecipe,
+  exportRecipe,
+  importRecipe
 } from './stock'
 import { inspectGappsZip } from '../worker/recipe/gapps'
 import { inspectMediaFile } from '../worker/recipe/media'
@@ -181,6 +183,21 @@ function registerIpc(): void {
       : await dialog.showOpenDialog(opts)
     return r.canceled ? null : (r.filePaths[0] ?? null)
   })
+  ipcMain.handle(
+    IPC.dialogSaveFile,
+    async (_e, title: unknown, defaultName: unknown, extensions: unknown) => {
+      const exts = z.array(z.string().regex(/^[a-z0-9]+$/)).parse(extensions)
+      const opts = {
+        title: String(title ?? 'Save file'),
+        defaultPath: z.string().parse(defaultName),
+        filters: [{ name: 'File', extensions: exts }]
+      }
+      const r = mainWindow
+        ? await dialog.showSaveDialog(mainWindow, opts)
+        : await dialog.showSaveDialog(opts)
+      return r.canceled ? null : (r.filePath ?? null)
+    }
+  )
 
   ipcMain.handle(IPC.projectsList, async () => listProjects((await settings.get()).recentProjects))
   ipcMain.handle(IPC.projectsCreate, async (_e, name: unknown) => {
@@ -235,6 +252,12 @@ function registerIpc(): void {
       .parse(zipPath)
     return inspectGappsZip(path)
   })
+  ipcMain.handle(IPC.recipeExport, (_e, p: unknown, dest: unknown) =>
+    exportRecipe(z.string().min(1).parse(p), z.string().min(1).parse(dest))
+  )
+  ipcMain.handle(IPC.recipeImport, (_e, p: unknown, srcPath: unknown) =>
+    importRecipe(z.string().min(1).parse(p), z.string().min(1).parse(srcPath))
+  )
   ipcMain.handle(IPC.buildsList, (_e, p: unknown) => listBuilds(z.string().min(1).parse(p)))
   ipcMain.handle(IPC.buildsReveal, async (_e, p: unknown, id: unknown) => {
     shell.showItemInFolder(await buildDir(z.string().min(1).parse(p), z.string().parse(id)))

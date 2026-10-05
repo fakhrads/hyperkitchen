@@ -134,3 +134,15 @@ export async function saveRecipe(projectPath: string, raw: unknown): Promise<Rec
   await writeFile(join(p.path, 'recipe.json'), JSON.stringify(recipe, null, 2))
   return recipe
 }
+
+/** Write the project recipe to an arbitrary file the user chose (for sharing). */
+export async function exportRecipe(projectPath: string, destPath: string): Promise<void> {
+  const recipe = await readRecipe(projectPath)
+  await writeFile(destPath, JSON.stringify(recipe, null, 2) + '\n')
+}
+
+/** Replace the project recipe with one read from a file, after validation. */
+export async function importRecipe(projectPath: string, srcPath: string): Promise<Recipe> {
+  const raw = JSON.parse(await readFile(srcPath, 'utf8'))
+  return saveRecipe(projectPath, raw)
+}

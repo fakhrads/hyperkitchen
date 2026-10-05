@@ -217,6 +217,8 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
   const workDir = inside(join(project, 'work'))
   await mkdir(imagesOut, { recursive: true })
   await mkdir(tmp, { recursive: true })
+  // Record the exact recipe for reproducibility.
+  await writeFile(join(outDir, 'recipe.json'), JSON.stringify(recipe, null, 2))
 
   const logLines: string[] = []
   const log = (s: string, stream: 'info' | 'stdout' | 'stderr' = 'info'): void => {
@@ -236,6 +238,7 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
     verity: params.verity,
     verityChanges: [],
     recipeOperations,
+    recipe,
     operations: [],
     partitions: [],
     superVerified: false,

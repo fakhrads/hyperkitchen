@@ -16,7 +16,9 @@ const api: HkApi = {
   },
   dialog: {
     pickDir: (title) => ipcRenderer.invoke(IPC.dialogPickDir, title),
-    pickFile: (title, extensions) => ipcRenderer.invoke(IPC.dialogPickFile, title, extensions)
+    pickFile: (title, extensions) => ipcRenderer.invoke(IPC.dialogPickFile, title, extensions),
+    saveFile: (title, defaultName, extensions) =>
+      ipcRenderer.invoke(IPC.dialogSaveFile, title, defaultName, extensions)
   },
   projects: {
     list: () => ipcRenderer.invoke(IPC.projectsList),
@@ -34,7 +36,9 @@ const api: HkApi = {
     save: (p, r) => ipcRenderer.invoke(IPC.recipeSave, p, r),
     catalog: () => ipcRenderer.invoke(IPC.recipeCatalog),
     inspectGapps: (z) => ipcRenderer.invoke(IPC.gappsInspect, z),
-    inspectMedia: (p, f) => ipcRenderer.invoke(IPC.mediaInspect, p, f)
+    inspectMedia: (p, f) => ipcRenderer.invoke(IPC.mediaInspect, p, f),
+    export: (p, d) => ipcRenderer.invoke(IPC.recipeExport, p, d),
+    import: (p, srcc) => ipcRenderer.invoke(IPC.recipeImport, p, srcc)
   },
   builds: {
     list: (p) => ipcRenderer.invoke(IPC.buildsList, p),

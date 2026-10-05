@@ -134,6 +134,11 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   that you run. A re-signed app gets no store or OTA updates and cannot replace
   a Xiaomi-signed system app that is still in the ROM.
 
+- **Templates**: a ready-made recipe applied in one click ("CN to global daily
+  driver" uses only files already in the ROM; "PureCN" reproduces the verified
+  PureCN changes). Recipes export to and import from a JSON file. Every build
+  copies the exact recipe it used into `build/<id>/recipe.json`.
+
 Put the projects folder on a **case-sensitive** filesystem: Android trees can
 hold names that differ only in case. On macOS, an APFS (Case-sensitive) volume
 or disk image works; exFAT is not suitable (case-insensitive, no hard links,

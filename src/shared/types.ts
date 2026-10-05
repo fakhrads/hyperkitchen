@@ -1,4 +1,4 @@
-import type { OperationReport } from './recipe'
+import type { OperationReport, Recipe } from './recipe'
 
 // Types shared by main, worker, preload and renderer. Keep this file free of
 // Node or Electron imports so the renderer bundle can include it.
@@ -164,6 +164,8 @@ export interface BuildInfo {
   verity: VerityMode
   verityChanges: string[]
   recipeOperations: number
+  /** The exact recipe this build used, for reproducibility. */
+  recipe?: Recipe
   /** What each enabled recipe operation changed. */
   operations: OperationReport[]
   /** Privileged permission allowlist check of the built trees. */

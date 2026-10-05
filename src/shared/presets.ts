@@ -309,3 +309,91 @@ export function mindTheGappsOps(zip: string, sha256: string, exclude: string[]):
     }
   ]
 }
+
+// ---- Named templates (M10): ready-made recipes the user applies in one click. ----
+
+export interface Template {
+  id: string
+  title: string
+  description: string
+  /** Operations that need no file or reference ROM; applied immediately. */
+  build: (opts: { romName?: string }) => Operation[]
+  /** Steps the user still has to do by hand (need a file or a reference ROM). */
+  followUp: string[]
+}
+
+/**
+ * CN to global daily driver: the self-contained CN-to-global essentials that need no external
+ * files, in the spirit of ZKOS / xiaomi.eu / PureCN. Debloat, drop the CN Google services
+ * restriction, the notification/background and battery patches, and (optionally) the ROM name.
+ * GApps and global-app imports are added afterwards because they need files the user provides.
+ */
+export function cnToGlobalDaily(opts: { romName?: string } = {}): Operation[] {
+  const ops: Operation[] = [
+    {
+      id: 'daily-debloat',
+      type: 'debloat',
+      enabled: true,
+      params: { packages: PURECN_DEBLOAT, force: false }
+    },
+    {
+      id: 'daily-unlock-cn-gms',
+      type: 'unlock-cn-gms',
+      enabled: true,
+      params: { includeGnss: false }
+    },
+    ...PURECN_PATCH_SETS.map((s): Operation => ({
+      id: `daily-${s}`,
+      type: 'patch',
+      enabled: true,
+      params: { patchSet: s }
+    }))
+  ]
+  if (opts.romName?.trim()) {
+    ops.push(
+      {
+        id: 'branding-prop',
+        type: 'set-props',
+        enabled: true,
+        params: {
+          file: 'product/etc/build.prop',
+          set: { 'ro.hyperkitchen.rom.display': opts.romName.trim() },
+          remove: []
+        }
+      },
+      {
+        id: 'patch-branding-about',
+        type: 'patch',
+        enabled: true,
+        params: { patchSet: 'branding-about' }
+      }
+    )
+  }
+  return ops
+}
+
+export const TEMPLATES: Template[] = [
+  {
+    id: 'cn-to-global-daily',
+    title: 'CN to global daily driver',
+    description:
+      'Debloat, remove the CN Google services restriction, fix notifications and background limits, loosen the battery policy, and optionally set the ROM name. Uses only files already in the ROM. Add Google apps (needs a MindTheGapps zip) and any global-app imports afterwards.',
+    build: cnToGlobalDaily,
+    followUp: [
+      'Add Google apps in the GApps section (download a MindTheGapps zip first).',
+      'Optionally import global Xiaomi apps from an unpacked reference ROM.',
+      'Set a boot animation or wallpapers in the Branding section.',
+      'First install with a data format (install_and_format_data) when the Play Store stub is replaced.'
+    ]
+  },
+  {
+    id: 'purecn-full',
+    title: 'PureCN (full reproduction)',
+    description:
+      'Every change HyperKitchen verified against the PureCN onyx ROM: debloat, forced core debloat, CN GMS unlock with GNSS, and all six smali patch sets. Import groups (global compat, GApps, global apps, Microsoft) are added from an unpacked PureCN project in the import section.',
+    build: () => purecnPreset(),
+    followUp: [
+      'Import the global-compat, gapps, global-apps and microsoft groups from an unpacked PureCN project of the same base version.'
+    ]
+  }
+]

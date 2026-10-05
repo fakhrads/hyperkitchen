@@ -81,6 +81,7 @@ export const IPC = {
   settingsUpdate: 'settings:update',
   dialogPickDir: 'dialog:pick-dir',
   dialogPickFile: 'dialog:pick-file',
+  dialogSaveFile: 'dialog:save-file',
   projectsList: 'projects:list',
   projectsCreate: 'projects:create',
   projectsOpen: 'projects:open',
@@ -92,6 +93,8 @@ export const IPC = {
   recipeGet: 'recipe:get',
   recipeSave: 'recipe:save',
   recipeCatalog: 'recipe:catalog',
+  recipeExport: 'recipe:export',
+  recipeImport: 'recipe:import',
   buildsReveal: 'builds:reveal',
   gappsInspect: 'gapps:inspect',
   mediaInspect: 'media:inspect',
@@ -128,6 +131,8 @@ export interface HkApi {
     pickDir(title: string): Promise<string | null>
     /** extensions without dots, e.g. ['tgz', 'zip']. */
     pickFile(title: string, extensions: string[]): Promise<string | null>
+    /** Ask where to save a file; returns the chosen path or null. */
+    saveFile(title: string, defaultName: string, extensions: string[]): Promise<string | null>
   }
   projects: {
     list(): Promise<ProjectSummary[]>
@@ -148,6 +153,10 @@ export interface HkApi {
     catalog(): Promise<PatchSetInfo[]>
     /** Read a MindTheGapps zip: SDK level, arch, apps and sha256. */
     inspectGapps(zipPath: string): Promise<GappsZipInfo>
+    /** Write the project recipe to a file the user chooses. */
+    export(projectPath: string, destPath: string): Promise<void>
+    /** Replace the project recipe with one read from a file; returns it validated. */
+    import(projectPath: string, srcPath: string): Promise<Recipe>
     /** Read an image or bootanimation.zip chosen for the media operation. */
     inspectMedia(projectPath: string, filePath: string): Promise<MediaFileInfo>
   }
