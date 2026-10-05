@@ -197,7 +197,20 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
   const recipeOperations = recipe.operations.filter((o) => o.enabled).length
   const bin = (n: string): string => join(ctx.env.binDir ?? '', n)
 
-  const id = buildId()
+  // Build ids have one-second resolution; claim the folder atomically and add a suffix when
+  // another build started in the same second.
+  await mkdir(join(project, 'build'), { recursive: true })
+  const base = buildId()
+  let id = base
+  for (let n = 2; ; n++) {
+    try {
+      await mkdir(inside(join(project, 'build', id)))
+      break
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EEXIST' || n > 99) throw e
+      id = `${base}-${n}`
+    }
+  }
   const outDir = inside(join(project, 'build', id))
   const imagesOut = join(outDir, 'images')
   const tmp = join(outDir, '.tmp')

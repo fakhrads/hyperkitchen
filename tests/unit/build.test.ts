@@ -255,7 +255,7 @@ describe.runIf(haveBins)('build', () => {
     expect(statSync(join(out, 'META-INF/com/google/android/update-binary')).size).toBeGreaterThan(0)
 
     // One zip with everything, like xiaomi.eu.
-    expect(info.zip).toMatch(/^hyperkitchen_testdev_TEST\.1\.0_\d{8}-\d{6}\.zip$/)
+    expect(info.zip).toMatch(/^hyperkitchen_testdev_TEST\.1\.0_\d{8}-\d{6}(-\d+)?\.zip$/)
     const z = await ZipFile.open(join(out, info.zip as string)).catch(() => null)
     // The fixture zip is small, so the TS reader (no zip64) can list it.
     expect(z).not.toBeNull()

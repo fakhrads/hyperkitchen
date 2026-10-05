@@ -99,7 +99,7 @@ export async function listBuilds(projectPath: string): Promise<BuildInfo[]> {
 /** Absolute folder of one build, validated to be inside the project's build/ dir. */
 export async function buildDir(projectPath: string, id: string): Promise<string> {
   const p = await openProject(projectPath)
-  if (!/^[0-9]{8}-[0-9]{6}$/.test(id)) throw new Error(`bad build id ${id}`)
+  if (!/^[0-9]{8}-[0-9]{6}(-[0-9]{1,2})?$/.test(id)) throw new Error(`bad build id ${id}`)
   return assertInside(join(p.path, 'build'), join(p.path, 'build', id))
 }
 
