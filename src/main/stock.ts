@@ -106,7 +106,8 @@ export async function buildDir(projectPath: string, id: string): Promise<string>
 export const BuildParamsSchema = z.object({
   projectPath: z.string().min(1),
   verity: z.enum(['fstab', 'vbmeta-flags']).default('fstab'),
-  verify: z.boolean().default(true)
+  verify: z.boolean().default(true),
+  zip: z.boolean().default(true)
 })
 
 export async function checkBuildParams(

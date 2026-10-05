@@ -202,7 +202,7 @@ export async function runDoctor(ctx: JobContext): Promise<DoctorReport> {
   }
 
   ctx.progress(0.85, 'Host')
-  for (const tool of ['tar', 'unzip']) {
+  for (const tool of ['tar', 'unzip', 'zip']) {
     let ok = false
     try {
       const r = await run(tool, tool === 'tar' ? ['--version'] : ['-v'], { timeoutMs: 10000 })

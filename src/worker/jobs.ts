@@ -44,6 +44,7 @@ export const handlers: Record<JobKind, JobHandler> = {
       projectPath: String(params.projectPath),
       verity: params.verity === 'vbmeta-flags' ? 'vbmeta-flags' : 'fstab',
       verify: params.verify !== false,
+      zip: params.zip !== false,
       generator: String(params.generator ?? 'HyperKitchen')
     })
 }

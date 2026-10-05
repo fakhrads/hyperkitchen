@@ -47,8 +47,14 @@ type Manifest struct {
 
 type FirmwareCheck struct {
 	Partition string `json:"partition"`
-	// Bytes compared from the start of the partition and their expected SHA-256.
-	Size   int64  `json:"size"`
+	// Byte ranges fastboot writes for this image (one for a raw image, the raw and fill
+	// chunks of a sparse one) and their expected SHA-256.
+	Regions []RegionHash `json:"regions"`
+}
+
+type RegionHash struct {
+	Offset int64  `json:"offset"`
+	Length int64  `json:"length"`
 	SHA256 string `json:"sha256"`
 }
 
@@ -188,15 +194,19 @@ func hashEntry(z *zip.Reader, name string) (string, error) {
 }
 
 func hashDevice(path string, size int64) (string, error) {
+	return hashDeviceAt(path, 0, size)
+}
+
+func hashDeviceAt(path string, off, size int64) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
 	h := sha256.New()
-	n, err := io.CopyN(h, f, size)
+	n, err := io.Copy(h, io.NewSectionReader(f, off, size))
 	if err != nil || n != size {
-		return "", fmt.Errorf("%s: read %d of %d bytes: %v", path, n, size, err)
+		return "", fmt.Errorf("%s: read %d of %d bytes at %d: %v", path, n, size, off, err)
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
@@ -262,12 +272,17 @@ func install(u ui, e env, zipPath string) error {
 			if err != nil {
 				return err
 			}
-			got, err := hashDevice(dev, fw.Size)
-			if err != nil {
-				return err
+			if len(fw.Regions) == 0 {
+				return fmt.Errorf("firmware check for %s has no regions", fw.Partition)
 			}
-			if got != fw.SHA256 {
-				return fmt.Errorf("firmware %s_%s differs from the base ROM; flash the package with the fastboot script first", fw.Partition, slot)
+			for _, r := range fw.Regions {
+				got, err := hashDeviceAt(dev, r.Offset, r.Length)
+				if err != nil {
+					return err
+				}
+				if got != r.SHA256 {
+					return fmt.Errorf("firmware %s_%s differs from the base ROM; flash the package with the fastboot script first", fw.Partition, slot)
+				}
 			}
 		}
 	}

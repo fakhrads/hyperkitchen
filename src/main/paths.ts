@@ -30,3 +30,10 @@ export function manifestPath(): string {
 export function managedJreDir(): string {
   return join(app.getPath('userData'), 'jre')
 }
+
+/** The recovery update-binary built from installer/updater (pnpm build-updater). */
+export function updaterPath(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'updater', 'update-binary')
+    : join(app.getAppPath(), 'resources', 'updater', 'update-binary')
+}

@@ -93,10 +93,15 @@ export function ProjectView({
     }
   }
 
-  const startBuild = async (verity: VerityMode, verify: boolean): Promise<void> => {
+  const startBuild = async (verity: VerityMode, verify: boolean, zip: boolean): Promise<void> => {
     setError(null)
     try {
-      const id = await window.hk.jobs.start('build', { projectPath: project.path, verity, verify })
+      const id = await window.hk.jobs.start('build', {
+        projectPath: project.path,
+        verity,
+        verify,
+        zip
+      })
       projectJobs.set(project.path, id)
       setJobId(id)
     } catch (e) {
@@ -236,7 +241,7 @@ export function ProjectView({
               projectPath={project.path}
               builds={builds}
               running={running}
-              onStart={(v, verify) => void startBuild(v, verify)}
+              onStart={(v, verify, zip) => void startBuild(v, verify, zip)}
             />
           )}
           {!running && tab === 'partitions' && <div style={{ marginTop: 22 }}>{chooser}</div>}
@@ -557,10 +562,11 @@ function BuildTab({
   projectPath: string
   builds: BuildInfo[]
   running: boolean
-  onStart: (verity: VerityMode, verify: boolean) => void
+  onStart: (verity: VerityMode, verify: boolean, zip: boolean) => void
 }): React.JSX.Element {
   const [verity, setVerity] = useState<VerityMode>('fstab')
   const [verify, setVerify] = useState(true)
+  const [zip, setZip] = useState(true)
   return (
     <>
       <div className="panel" data-testid="build-panel">
@@ -603,12 +609,22 @@ function BuildTab({
             />{' '}
             Verify: extract every rebuilt image again and compare it file by file (slower)
           </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={zip}
+              onChange={(e) => setZip(e.target.checked)}
+              data-testid="build-zip"
+            />{' '}
+            One zip like xiaomi.eu: scripts for macOS, Linux and Windows with fastboot included,
+            installable from TWRP/OrangeFox too (needs as much free space again as the build)
+          </label>
         </div>
         <div className="row" style={{ marginTop: 10 }}>
           <button
             className="primary"
             disabled={running}
-            onClick={() => onStart(verity, verify)}
+            onClick={() => onStart(verity, verify, zip)}
             data-testid="build-start"
           >
             Build
@@ -644,7 +660,20 @@ function BuildTab({
             )}
             {b.status === 'done' && (
               <div className="mono" style={{ marginTop: 6 }}>
-                scripts: {b.scripts.join(', ')}
+                {b.zip ? <div>zip: {b.zip}</div> : null}
+                <div>
+                  recovery installer: {b.recoveryInstaller ? 'yes' : 'no'}, fastboot bundled:{' '}
+                  {b.bundledFastboot ? 'yes' : 'no'}
+                </div>
+                <div>scripts: {b.scripts.join(', ')}</div>
+                {b.operations?.length ? (
+                  <div>
+                    recipe:{' '}
+                    {b.operations
+                      .map((o) => `${o.id} (-${o.removed.length} ~${o.modified.length})`)
+                      .join(', ')}
+                  </div>
+                ) : null}
               </div>
             )}
             {b.warnings.map((w) => (

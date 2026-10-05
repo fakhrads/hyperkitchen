@@ -139,7 +139,9 @@ test('builds a verified fastboot package from the unpacked ROM', async () => {
   await expect(card).toHaveAttribute('data-status', 'done', { timeout: 120_000 })
   await expect(card).toContainText('2/2 partitions verified, super.img verified')
   await expect(card).toContainText('vbmeta.img flags 0 -> 3')
-  await expect(card).toContainText('flash_all.sh, flash_all_except_storage.sh')
+  await expect(card).toContainText('macos_install_upgrade.sh')
+  await expect(card).toContainText('recovery installer: yes')
+  await expect(card).toContainText('zip: hyperkitchen_testdev_TEST.1.0_')
   const builds = join(tmp, 'projects', 'onyx unpack', 'build')
   const id = readdirSync(builds)[0]
   expect(existsSync(join(builds, id, 'images', 'super.img'))).toBe(true)

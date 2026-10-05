@@ -1,6 +1,6 @@
 // M3: verity edits, flash scripts, and a full build of a synthetic ROM (needs `pnpm fetch-bins`).
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -9,10 +9,12 @@ import { createProject } from '../../src/main/projects'
 import { platformKey } from '../../src/shared/platform'
 import type { BuildInfo } from '../../src/shared/types'
 import { build } from '../../src/worker/build'
+import { run } from '../../src/worker/spawn'
 import type { JobContext } from '../../src/worker/context'
 import { parseErofsSuper } from '../../src/worker/formats/erofs'
 import { readLpMetadata } from '../../src/worker/formats/lp'
 import { SparseSource } from '../../src/worker/formats/sparse'
+import { ZipFile } from '../../src/worker/formats/zip'
 import { vbmetaFlags, withVbmetaFlags } from '../../src/worker/formats/vbmeta'
 import { parseStockScript, referencedFiles, renderScript } from '../../src/worker/flashscript'
 import { hasAvbFlags, stripAvbFlags } from '../../src/worker/fstab'
@@ -147,7 +149,8 @@ describe.runIf(haveBins)('build', () => {
       userData: tmp,
       managedJreDir: join(tmp, 'jre'),
       projectsRoot: join(tmp, 'projects'),
-      javaPathSetting: ''
+      javaPathSetting: '',
+      updaterPath: join(root, 'resources/updater/update-binary')
     }
   })
 
@@ -167,6 +170,7 @@ describe.runIf(haveBins)('build', () => {
       projectPath: project,
       verity: 'vbmeta-flags',
       verify: true,
+      zip: true,
       generator: 'test'
     })
     expect(info.status).toBe('done')
@@ -198,13 +202,69 @@ describe.runIf(haveBins)('build', () => {
 
     expect(vbmetaFlags(readFileSync(join(out, 'images', 'vbmeta.img')))).toBe(3)
     expect(info.verityChanges).toEqual(['vbmeta.img flags 0 -> 3'])
-    expect(info.scripts).toEqual(['flash_all.sh', 'flash_all_except_storage.sh'])
-    const keep = readFileSync(join(out, 'flash_all_except_storage.sh'), 'utf8')
+    // xiaomi.eu style: three variants for macOS, Linux and Windows.
+    expect(info.scripts.sort()).toEqual(
+      ['install_upgrade', 'install_and_format_data', 'format_data_only']
+        .flatMap((v) => [`macos_${v}.sh`, `linux_${v}.sh`, `windows_${v}.bat`])
+        .sort()
+    )
+    const keep = readFileSync(join(out, 'macos_install_upgrade.sh'), 'utf8')
     expect(keep).toContain('[ "$product" = \'testdev\' ]')
+    expect(keep).toContain("FB='bin/macos/fastboot'")
     expect(keep).not.toContain('erase metadata')
-    expect(readFileSync(join(out, 'flash_all.sh'), 'utf8')).toContain("run erase 'metadata'")
+    expect(readFileSync(join(out, 'macos_install_and_format_data.sh'), 'utf8')).toContain(
+      "run erase 'metadata'"
+    )
+    expect(keep).toContain('xattr -d com.apple.quarantine "$FB"')
+    expect(readFileSync(join(out, 'linux_install_upgrade.sh'), 'utf8')).not.toContain('xattr')
+    // Every generated shell script parses.
+    for (const name of info.scripts.filter((n) => n.endsWith('.sh'))) {
+      const r = await run('sh', ['-n', join(out, name)])
+      expect(r.code, `${name}: ${r.output}`).toBe(0)
+    }
+    const formatOnly = readFileSync(join(out, 'linux_format_data_only.sh'), 'utf8')
+    expect(formatOnly).toContain("run erase 'metadata'")
+    expect(formatOnly).not.toContain("run flash 'super'")
+    const bat = readFileSync(join(out, 'windows_install_upgrade.bat'), 'utf8')
+    expect(bat).toContain('%fastboot% flash super images\\super.img ||')
+    expect(bat).toContain('\r\n')
     expect(keep).not.toMatch(/crclist/)
     expect(existsSync(join(out, 'images', 'sparsecrclist.txt'))).toBe(false)
+
+    // Bundled fastboot and the recovery installer.
+    if (info.bundledFastboot) {
+      expect(statSync(join(out, 'bin/macos/fastboot')).mode & 0o111).not.toBe(0)
+      expect(existsSync(join(out, 'bin/windows/fastboot.exe'))).toBe(true)
+    }
+    expect(info.recoveryInstaller).toBe(true)
+    const manifest = JSON.parse(readFileSync(join(out, 'hk-install.json'), 'utf8')) as {
+      device: string
+      write: Array<{ partition: string; slots: string[] }>
+      super: { entry: string; sha256: string }
+      activeSlot: string
+    }
+    expect(manifest.device).toBe('testdev')
+    expect(manifest.write.map((w) => w.partition).sort()).toEqual(['boot', 'vbmeta'])
+    expect(manifest.write.every((w) => w.slots.join() === 'a,b')).toBe(true)
+    expect(manifest.write.some((w) => w.partition === 'recovery')).toBe(false)
+    expect(manifest.super.sha256).toBe(
+      createHash('sha256')
+        .update(readFileSync(join(out, manifest.super.entry)))
+        .digest('hex')
+    )
+    expect(statSync(join(out, 'META-INF/com/google/android/update-binary')).size).toBeGreaterThan(0)
+
+    // One zip with everything, like xiaomi.eu.
+    expect(info.zip).toMatch(/^hyperkitchen_testdev_TEST\.1\.0_\d{8}-\d{6}\.zip$/)
+    const z = await ZipFile.open(join(out, info.zip as string)).catch(() => null)
+    // The fixture zip is small, so the TS reader (no zip64) can list it.
+    expect(z).not.toBeNull()
+    const names = [...(z as ZipFile).entries.keys()]
+    await (z as ZipFile).close()
+    expect(names).toContain('META-INF/com/google/android/update-binary')
+    expect(names).toContain('hk-install.json')
+    expect(names).toContain('images/super.img')
+    expect(names).not.toContain('build.log')
 
     // Every listed checksum matches the file.
     const sums = readFileSync(join(out, 'checksums.sha256'), 'utf8').trim().split('\n')
@@ -247,6 +307,7 @@ describe.runIf(haveBins)('build', () => {
         projectPath: project,
         verity: 'vbmeta-flags',
         verify: true,
+        zip: false,
         generator: 't'
       })
       expect(info.status).toBe('done')
@@ -276,7 +337,13 @@ describe.runIf(haveBins)('build', () => {
       JSON.stringify({ schema: 1, operations: [{ id: 'x' }] })
     )
     await expect(
-      build(ctx(), { projectPath: project, verity: 'vbmeta-flags', verify: false, generator: 't' })
+      build(ctx(), {
+        projectPath: project,
+        verity: 'vbmeta-flags',
+        verify: false,
+        zip: false,
+        generator: 't'
+      })
     ).rejects.toThrow()
     await writeFile(
       join(project, 'recipe.json'),
@@ -286,7 +353,13 @@ describe.runIf(haveBins)('build', () => {
       })
     )
     await expect(
-      build(ctx(), { projectPath: project, verity: 'vbmeta-flags', verify: false, generator: 't' })
+      build(ctx(), {
+        projectPath: project,
+        verity: 'vbmeta-flags',
+        verify: false,
+        zip: false,
+        generator: 't'
+      })
     ).rejects.toThrow(/gone .*does not exist/)
     await writeFile(join(project, 'recipe.json'), JSON.stringify({ schema: 1, operations: [] }))
   }, 120_000)

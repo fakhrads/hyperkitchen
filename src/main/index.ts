@@ -8,7 +8,14 @@ import { IPC } from '../shared/ipc'
 import type { AppInfo, DoctorReport, JobState, Settings } from '../shared/types'
 import type { WorkerToMain } from '../shared/worker-protocol'
 import { JobManager, type WorkerLike } from './jobs'
-import { binDir, commonBinDir, currentPlatformKey, managedJreDir, manifestPath } from './paths'
+import {
+  binDir,
+  commonBinDir,
+  currentPlatformKey,
+  managedJreDir,
+  manifestPath,
+  updaterPath
+} from './paths'
 import { createProject, listProjects, openProject } from './projects'
 import { SettingsPatchSchema, SettingsStore } from './settings'
 import {
@@ -69,7 +76,8 @@ const jobs = new JobManager(
       userData: app.getPath('userData'),
       managedJreDir: managedJreDir(),
       projectsRoot: s.projectsRoot,
-      javaPathSetting: s.javaPath
+      javaPathSetting: s.javaPath,
+      updaterPath: updaterPath()
     }
   },
   {

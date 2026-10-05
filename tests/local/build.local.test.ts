@@ -28,7 +28,8 @@ it('builds a real ROM', async () => {
         userData: dir,
         managedJreDir: join(dir, 'jre'),
         projectsRoot: projects,
-        javaPathSetting: ''
+        javaPathSetting: '',
+        updaterPath: join(root, 'resources/updater/update-binary')
       },
       progress: (p, step) => {
         const s = `${((p ?? 0) * 100).toFixed(0)}% ${step ?? ''}`
@@ -41,6 +42,7 @@ it('builds a real ROM', async () => {
       projectPath: dir,
       verity: process.env.HK_VERITY === 'vbmeta-flags' ? 'vbmeta-flags' : 'fstab',
       verify: process.env.HK_VERIFY !== '0',
+      zip: process.env.HK_ZIP !== '0',
       generator: 'HyperKitchen local test'
     }
   )

@@ -28,6 +28,7 @@ Requirements: Node.js 22+, pnpm 11+, `tar` and `unzip` on PATH.
 ```sh
 pnpm install
 pnpm fetch-bins            # download pinned host binaries for this platform (sha256 checked)
+pnpm build-updater         # recovery update-binary (needs Go)
 pnpm dev                   # electron-vite dev with HMR
 ```
 
@@ -92,6 +93,19 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   either removes the avb flags from the vendor_boot first-stage fstab (default)
   or sets the disable flags in `vbmeta.img`. Either way the package only boots
   with an unlocked bootloader. HyperKitchen never runs the scripts; you do.
+- **Package** (like xiaomi.eu): one zip with `images/`, pinned Google
+  platform-tools `fastboot` for macOS, Linux and Windows in `bin/`, and
+  `{macos,linux}_*.sh` / `windows_*.bat` scripts in three variants
+  (`install_upgrade`, `install_and_format_data`, `format_data_only`). The same
+  zip installs from TWRP/OrangeFox through HyperKitchen's own `update-binary`
+  (`installer/updater`, Go): it checks the device, the firmware already on both
+  slots and every image hash before writing anything, writes the boot images to
+  both slots and `super`, reads every write back, and never touches the
+  recovery partition or the bootloader firmware.
+- **Recipe**: debloat, build.prop edits, CN Google services unlock and smali
+  patch sets (notifications, Greezer, PowerKeeper, Joyose), with a PureCN
+  preset. Smali patches keep the original APK signature blocks; Android does
+  not verify APKs on system partitions, so the apps keep their identity.
 
 Put the projects folder on a **case-sensitive** filesystem: Android trees can
 hold names that differ only in case. On macOS, an APFS (Case-sensitive) volume

@@ -170,6 +170,11 @@ export interface BuildInfo {
   /** Super image read back and checked against the stock layout and the built images. */
   superVerified: boolean
   scripts: string[]
+  /** META-INF update-binary and hk-install.json present (TWRP/OrangeFox install). */
+  recoveryInstaller?: boolean
+  bundledFastboot?: boolean
+  /** File name of the package zip inside the build folder, when one was made. */
+  zip?: string | null
   warnings: string[]
 }
 

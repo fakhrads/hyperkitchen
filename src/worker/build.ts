@@ -32,7 +32,8 @@ import {
   withVbmetaFlags
 } from './formats/vbmeta'
 import { cloneOrCopy, cloneTree, hashFile } from './fsutil'
-import { parseStockScript, referencedFiles, renderScript } from './flashscript'
+import { parseStockScript } from './flashscript'
+import { writePackage } from './package'
 import { hasAvbFlags, stripAvbFlags } from './fstab'
 import { run } from './spawn'
 import { compareLineSets, compareTrees } from './treecompare'
@@ -42,6 +43,8 @@ export interface BuildParams {
   verity: VerityMode
   /** Extract every rebuilt image again and compare it file by file (slow, on by default). */
   verify: boolean
+  /** Also write one zip with everything, like xiaomi.eu (also installable from recovery). */
+  zip: boolean
   /** Shown in generated files, e.g. "HyperKitchen 0.1.0". */
   generator: string
 }
@@ -516,29 +519,29 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
     for (const c of info.verityChanges) log(c)
 
     const device = stock.device ?? ''
-    for (const [stockName, outName, wipesData] of [
-      ['flash_all.sh', 'flash_all.sh', true],
-      ['flash_all_except_storage.sh', 'flash_all_except_storage.sh', false]
-    ] as const) {
-      const sp = join(fw, stockName)
-      if (!existsSync(sp)) continue
-      const steps = parseStockScript(await readFile(sp, 'utf8'))
-      const missing = referencedFiles(steps).filter((f) => !existsSync(join(outDir, f)))
-      if (missing.length) throw new Error(`${stockName} needs missing files: ${missing.join(', ')}`)
-      const text = renderScript({
-        device,
-        antiVersionFile: existsSync(join(imagesOut, 'anti_version.txt')),
-        wipesData,
-        steps,
-        generator: params.generator
-      })
-      await writeFile(join(outDir, outName), text, { mode: 0o755 })
-      info.scripts.push(outName)
+    const stockSteps = async (name: string): Promise<ReturnType<typeof parseStockScript>> => {
+      const sp = join(fw, name)
+      if (!existsSync(sp))
+        throw new Error(`the stock ROM has no ${name} to take the partition list from`)
+      return parseStockScript(await readFile(sp, 'utf8'))
     }
-    if (!info.scripts.length) {
-      throw new Error('the stock ROM has no flash_all.sh to take the partition list from')
-    }
-    stages.report(5, 1, 'scripts written')
+    const pkg = await writePackage({
+      outDir,
+      commonBinDir: ctx.env.commonBinDir,
+      updaterPath: ctx.env.updaterPath,
+      device,
+      build: id,
+      generator: params.generator,
+      allSteps: await stockSteps('flash_all.sh'),
+      keepDataSteps: await stockSteps('flash_all_except_storage.sh'),
+      signal: ctx.signal,
+      log
+    })
+    info.scripts = pkg.scripts
+    info.recoveryInstaller = pkg.recovery
+    info.bundledFastboot = pkg.bundledFastboot
+    if (!pkg.recovery) info.warnings.push('no recovery installer (update-binary not built)')
+    stages.report(5, 1, 'package files written')
 
     // ---- 6: checksums
     await rm(tmp, { recursive: true, force: true })
@@ -572,17 +575,39 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
         `Device: ${stock.device}  Base: ${stock.romVersion}`,
         `Stock input: ${stock.input.path}`,
         '',
-        'Flash with your own fastboot, bootloader UNLOCKED:',
-        '  ./flash_all_except_storage.sh   keeps user data',
-        '  ./flash_all.sh                  wipes user data',
+        'Bootloader must be UNLOCKED. Never relock with this ROM installed.',
+        '',
+        'From a computer (fastboot is included in bin/):',
+        '  macOS:   ./macos_install_upgrade.sh            keeps user data',
+        '           ./macos_install_and_format_data.sh    formats user data',
+        '  Linux:   ./linux_install_upgrade.sh, ./linux_install_and_format_data.sh',
+        '  Windows: windows_install_upgrade.bat, windows_install_and_format_data.bat (not tested by the author)',
+        '',
+        pkg.recovery
+          ? 'From a custom recovery (TWRP/OrangeFox): install this zip. It first checks that the firmware on both slots matches the base ROM and refuses otherwise; flash once with the scripts above in that case.'
+          : 'This package has no recovery installer.',
         '',
         `Verity handling (${params.verity}):`,
         ...info.verityChanges.map((c) => `  ${c}`),
         '',
-        'Never relock the bootloader with this ROM installed.',
         'Verify files with: shasum -a 256 -c checksums.sha256'
       ].join('\n') + '\n'
     )
+    if (params.zip) {
+      stages.report(6, 1, 'zipping package')
+      const name = `hyperkitchen_${device}_${stock.romVersion ?? 'rom'}_${id}.zip`.replace(
+        /[^A-Za-z0-9._-]/g,
+        '_'
+      )
+      const r = await run(
+        'zip',
+        ['-0', '-r', '-q', '-X', '-D', name, '.', '-x', name, 'build.json', 'build.log'],
+        { cwd: outDir, signal: ctx.signal }
+      )
+      if (r.code !== 0) throw new Error(`zip failed (exit ${r.code}): ${r.output.slice(-300)}`)
+      info.zip = name
+      log(`package zip: ${name}`)
+    }
     info.status = 'done'
     log(`build ${id} done: ${outDir}`)
   } catch (e) {

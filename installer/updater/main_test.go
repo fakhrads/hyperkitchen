@@ -99,7 +99,10 @@ func newFixture(t *testing.T, edit func(m *Manifest)) *fixture {
 	}
 	m := Manifest{
 		Schema: 1, Device: "onyx", Build: "test", Generator: "test",
-		Firmware:   []FirmwareCheck{{Partition: "xbl", Size: int64(len(fw)), SHA256: sum(fw)}},
+		Firmware: []FirmwareCheck{{Partition: "xbl", Regions: []RegionHash{
+			{Offset: 0, Length: 600, SHA256: sum(fw[:600])},
+			{Offset: 700, Length: 300, SHA256: sum(fw[700:])},
+		}}},
 		Write:      []ImageWrite{{Entry: "images/boot.img", Partition: "boot", Slots: []string{"a", "b"}, SHA256: sum(fx.boot)}},
 		Super:      ImageWrite{Entry: "images/super.img", Partition: "super", SHA256: sum(fx.super), Sparse: true},
 		ActiveSlot: "a",

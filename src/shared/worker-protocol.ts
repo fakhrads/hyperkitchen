@@ -12,6 +12,8 @@ export interface WorkerEnv {
   managedJreDir: string
   projectsRoot: string
   javaPathSetting: string
+  /** Recovery update-binary for packages; absent in tests that do not build packages. */
+  updaterPath?: string
 }
 
 export type MainToWorker =
