@@ -15,6 +15,7 @@ export interface ApplyEnv {
   workFs: string
   partitions: string[]
   apks: ApkInfo[]
+  stockVersion: string | null
   /** Needed only when the recipe has patch operations. */
   java: string | null
   apktool: string
@@ -29,7 +30,7 @@ export async function applyRecipe(recipe: Recipe, env: ApplyEnv): Promise<Operat
   const reports: OperationReport[] = []
   if (!ops.length) return reports
   const tree = await WorkTree.open(env.workFs, env.partitions)
-  const ctx: OpContext = { tree, apks: env.apks, log: env.log }
+  const ctx: OpContext = { tree, apks: env.apks, log: env.log, stockVersion: env.stockVersion }
 
   const fileOps = ops.filter((o) => FILE_OPS[o.type])
   const patchOps = ops.filter((o): o is Extract<Operation, { type: 'patch' }> => o.type === 'patch')

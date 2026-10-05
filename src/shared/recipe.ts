@@ -62,6 +62,19 @@ export const OperationSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     id: z.string().min(1),
+    type: z.literal('import-from-rom'),
+    enabled: z.boolean().default(true),
+    params: z.object({
+      /** Another HyperKitchen project whose stock/fs is the source (e.g. an unpacked PureCN). */
+      project: z.string().min(1),
+      /** Tree paths to copy (files or whole directories). */
+      paths: z.array(TreePath).min(1),
+      /** Tree paths that may replace an existing file in work/. */
+      replace: z.array(TreePath).default([])
+    })
+  }),
+  z.object({
+    id: z.string().min(1),
     type: z.literal('gapps'),
     enabled: z.boolean().default(true),
     params: z.object({

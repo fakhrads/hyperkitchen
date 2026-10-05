@@ -368,3 +368,78 @@ describe('zip rewriter', () => {
     expect(alignedExtra(old, 41, 4)).toEqual(e)
   })
 })
+
+describe('import-from-rom', () => {
+  it('copies files with the exact metadata of the source ROM and refuses silent overwrites', async () => {
+    // Source ROM: a project folder with stock/fs.
+    const refProject = join(tmp, `ref${Math.random().toString(36).slice(2)}`)
+    const refFs = await makeTree()
+    await mkdir(join(refProject, 'stock'), { recursive: true })
+    await rm(join(refProject, 'stock', 'fs'), { recursive: true, force: true })
+    await writeFile(join(refFs, 'product', 'app', 'Foo', 'lib.so'), 'lib')
+    const fsCfg = readFileSync(join(refFs, 'config', 'product_fs_config'), 'utf8')
+    await writeFile(
+      join(refFs, 'config', 'product_fs_config'),
+      fsCfg + 'product/app/Foo/lib.so 0 2000 0750 capabilities=0x400\n'
+    )
+    const ctxCfg = readFileSync(join(refFs, 'config', 'product_file_contexts'), 'utf8')
+    await writeFile(
+      join(refFs, 'config', 'product_file_contexts'),
+      ctxCfg + '/product/app/Foo/lib\\.so u:object_r:special_file:s0\n'
+    )
+    const { rename } = await import('node:fs/promises')
+    await rename(refFs, join(refProject, 'stock', 'fs'))
+
+    // Target without the app.
+    const root = await makeTree()
+    const t = await WorkTree.open(root, ['product'])
+    await t.remove('product/app/Foo')
+    const { FILE_OPS, newReport } = await import('../../src/worker/recipe/ops')
+    const op = RecipeSchema.parse({
+      schema: 1,
+      operations: [
+        {
+          id: 'imp',
+          type: 'import-from-rom',
+          params: { project: refProject, paths: ['product/app/Foo'] }
+        }
+      ]
+    }).operations[0]
+    const r = newReport(op)
+    await FILE_OPS['import-from-rom']!({ tree: t, apks: [], log: () => {} }, op, r)
+    await t.save()
+    expect(r.added.sort()).toEqual(['product/app/Foo/Foo.apk', 'product/app/Foo/lib.so'])
+    expect(readFileSync(join(root, 'product/app/Foo/lib.so'), 'utf8')).toBe('lib')
+    const fs = readFileSync(join(root, 'config', 'product_fs_config'), 'utf8')
+    expect(fs).toContain('product/app/Foo/lib.so 0 2000 0750 capabilities=0x400')
+    expect(readFileSync(join(root, 'config', 'product_file_contexts'), 'utf8')).toContain(
+      '/product/app/Foo/lib\\.so u:object_r:special_file:s0'
+    )
+    // A second import of the same files must be explicit.
+    const again = newReport(op)
+    await expect(
+      FILE_OPS['import-from-rom']!({ tree: t, apks: [], log: () => {} }, op, again)
+    ).rejects.toThrow(/replace/)
+  })
+})
+
+describe('PureCN presets', () => {
+  it('produce valid recipes with unique ids and replace only what they import', async () => {
+    const { purecnImportOps, purecnPreset } = await import('../../src/shared/presets')
+    const ops = [
+      ...purecnPreset(),
+      ...purecnImportOps('/x/onyx-purecn', ['global-compat', 'gapps', 'global-apps', 'microsoft'])
+    ]
+    const r = RecipeSchema.parse({ schema: 1, operations: ops })
+    const ids = r.operations.map((o) => o.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const o of r.operations) {
+      if (o.type !== 'import-from-rom') continue
+      for (const p of o.params.replace) expect(o.params.paths, `${o.id} ${p}`).toContain(p)
+    }
+    // Encryption stays on unless the user opts in.
+    expect(r.operations.some((o) => o.type === 'disable-encryption')).toBe(false)
+    const removed = r.operations.flatMap((o) => (o.type === 'remove-paths' ? o.params.paths : []))
+    expect(removed).toContain('product/etc/permissions/privapp-permissions-gms-cn-product.xml')
+  })
+})

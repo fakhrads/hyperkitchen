@@ -267,6 +267,7 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
         workFs: join(workDir, 'fs'),
         partitions: stock.partitions.filter((p) => p.extracted).map((p) => p.name),
         apks: inventory.apks,
+        stockVersion: stock.romVersion,
         java: java?.path ?? null,
         apktool: join(ctx.env.commonBinDir, 'apktool.jar'),
         tmp,

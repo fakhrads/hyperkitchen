@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { PatchSetInfo } from '../../../shared/ipc'
-import { purecnPreset } from '../../../shared/presets'
+import { purecnImportOps, purecnPreset, type ImportGroup } from '../../../shared/presets'
 import type { Operation, Recipe } from '../../../shared/recipe'
 import type { StockInfo } from '../../../shared/types'
 import { errorText } from '../format'
@@ -26,6 +26,8 @@ function summary(op: Operation): string {
       return '/data stored unencrypted'
     case 'gapps':
       return op.params.zip
+    case 'import-from-rom':
+      return `${op.params.paths.length} paths from ${op.params.project}${op.params.replace.length ? `, ${op.params.replace.length} replacing stock` : ''}`
   }
 }
 
@@ -49,6 +51,8 @@ export function RecipeTab({
   )
   const [propKey, setPropKey] = useState('')
   const [propValue, setPropValue] = useState('')
+  const [refProject, setRefProject] = useState<string | null>(null)
+  const [groups, setGroups] = useState<ImportGroup[]>(['global-compat', 'gapps'])
 
   useEffect(() => {
     void Promise.all([window.hk.recipe.get(projectPath), window.hk.recipe.catalog()])
@@ -177,6 +181,74 @@ export function RecipeTab({
             </label>
           )
         })}
+      </div>
+
+      <h2>Import from a reference ROM (PureCN)</h2>
+      <div className="panel" data-testid="import-panel">
+        <p className="sub" style={{ margin: '0 0 8px' }}>
+          Copies files from another unpacked HyperKitchen project on this computer, for example a
+          PureCN ROM built on the same base version. Owner, mode and SELinux labels are taken from
+          that ROM. Replacing stock files is refused unless both ROMs have the same base version.
+          Nothing is downloaded. A first install of a build with Google apps should format data
+          (install_and_format_data).
+        </p>
+        <div className="row">
+          <button
+            onClick={() =>
+              void window.hk.dialog
+                .pickDir('Choose the unpacked reference project')
+                .then((d) => d && setRefProject(d))
+            }
+            data-testid="import-pick"
+          >
+            Choose project…
+          </button>
+          <span className="mono">{refProject ?? ''}</span>
+        </div>
+        {(
+          [
+            [
+              'global-compat',
+              'Global compatibility: PureCN-patched SystemUI, Settings, AOD, Home, Contacts, TeleService, SecurityCenter, package installer, overlays, device features'
+            ],
+            [
+              'gapps',
+              'Google apps: Play Store, Google, Gemini, Gboard, setup wizard, restore, sync adapters, TTS (replaces the CN Play Store stub)'
+            ],
+            ['global-apps', 'Global Xiaomi apps: Weather, Themes, Health and the style pickers'],
+            ['microsoft', 'Link to Windows']
+          ] as Array<[ImportGroup, string]>
+        ).map(([g, label]) => (
+          <label key={g} style={{ display: 'block', marginTop: 6 }}>
+            <input
+              type="checkbox"
+              checked={groups.includes(g)}
+              onChange={(e) =>
+                setGroups(e.target.checked ? [...groups, g] : groups.filter((x) => x !== g))
+              }
+              data-testid={`import-${g}`}
+            />{' '}
+            {label}
+          </label>
+        ))}
+        <div className="row" style={{ marginTop: 10 }}>
+          <button
+            disabled={!refProject || !groups.length}
+            onClick={() => {
+              const add = purecnImportOps(refProject as string, groups)
+              const ids = new Set(add.map((o) => o.id))
+              set([...ops.filter((o) => !ids.has(o.id)), ...add])
+            }}
+            data-testid="import-add"
+          >
+            Add to recipe
+          </button>
+        </div>
+        <p className="sub" style={{ margin: '8px 0 0' }}>
+          Not imported on purpose: xiaomi.eu components (XiaomiEUExt, xeu_toolbox), the boot-time
+          resetprop that reports a locked bootloader, the pm disable tweaks in a vendor rc file,
+          branding, wallpapers and themes.
+        </p>
       </div>
 
       <h2>Google services</h2>

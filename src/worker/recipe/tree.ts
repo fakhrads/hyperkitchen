@@ -35,6 +35,13 @@ export interface FileMeta {
   mode?: number
   /** SELinux label; defaults to the nearest ancestor's label. */
   label?: string
+  /** Exact fs_config fields after the path ("uid gid mode [capabilities=..]"); wins over uid/gid/mode. */
+  fsRest?: string
+}
+
+export interface EntryMeta {
+  fsRest: string
+  label: string
 }
 
 export class WorkTree {
@@ -149,9 +156,31 @@ export class WorkTree {
     this.push(
       c,
       rel,
-      `${meta.uid ?? 0} ${meta.gid ?? 0} ${mode}`,
+      meta.fsRest ?? `${meta.uid ?? 0} ${meta.gid ?? 0} ${mode}`,
       meta.label ?? this.labelFor(c, posix.dirname(rel))
     )
+    this.added.add(rel)
+  }
+
+  /** Exact metadata of an existing entry (used to copy files between trees). */
+  meta(rel: string): EntryMeta | null {
+    const c = this.configs.get(this.partitionOf(rel)) as PartitionConfig
+    const fs = c.fs.find((e) => e.key === rel)
+    const ctx = c.ctx.find((e) => e.key === rel)
+    if (!fs || !ctx) return null
+    return {
+      fsRest: fs.line.slice(fs.line.indexOf(' ') + 1),
+      label: ctx.line.slice(ctx.line.lastIndexOf(' ') + 1)
+    }
+  }
+
+  /** Add a directory with exact metadata (parents are created with inherited metadata). */
+  async addDir(rel: string, meta: EntryMeta): Promise<void> {
+    const c = this.configs.get(this.partitionOf(rel)) as PartitionConfig
+    if (this.exists(rel)) return
+    await this.ensureDir(posix.dirname(rel))
+    await mkdir(this.abs(rel))
+    this.push(c, rel, meta.fsRest, meta.label)
     this.added.add(rel)
   }
 

@@ -1,16 +1,24 @@
 // Recipe operations that edit files directly (M4). Smali patches and GApps live in their own
 // modules. Every operation works through WorkTree so fs_config/file_contexts stay in sync.
 
-import { posix } from 'node:path'
+import {
+  lstat as lstatAsync,
+  readdir as readdirAsync,
+  readFile as readFileAsync
+} from 'node:fs/promises'
+import { join as joinPath, posix } from 'node:path'
 import type { ApkInfo } from '../../shared/types'
 import type { Operation, OperationReport } from '../../shared/recipe'
 import { parseProps } from '../formats/buildprop'
-import type { WorkTree } from './tree'
+import { artifactsOf } from './patcher'
+import { WorkTree } from './tree'
 
 export interface OpContext {
   tree: WorkTree
   apks: ApkInfo[]
   log: (s: string) => void
+  /** romVersion of the stock ROM being modified (stock.json). */
+  stockVersion?: string | null
 }
 
 /**
@@ -209,3 +217,74 @@ export const FILE_OPS: Partial<Record<Operation['type'], OpRunner>> = {
   'unlock-cn-gms': unlockCnGms as OpRunner,
   'disable-encryption': disableEncryption as OpRunner
 }
+
+// ---- import-from-rom
+
+/**
+ * Copy files from another unpacked ROM (a HyperKitchen project the user owns), keeping the
+ * exact owner, mode, capabilities and SELinux label recorded in that ROM's fs_config and
+ * file_contexts. Nothing is downloaded or bundled by HyperKitchen.
+ */
+async function importFromRom(
+  ctx: OpContext,
+  op: Extract<Operation, { type: 'import-from-rom' }>,
+  r: OperationReport
+): Promise<void> {
+  // Replacing stock files with files from another ROM is only safe when both are built on the
+  // same base version: the replaced apps run against this ROM's framework.
+  if (op.params.replace.length) {
+    let refVersion: string | null = null
+    try {
+      refVersion = (
+        JSON.parse(
+          await readFileAsync(joinPath(op.params.project, 'stock', 'stock.json'), 'utf8')
+        ) as {
+          romVersion: string | null
+        }
+      ).romVersion
+    } catch {
+      throw new Error(`${op.params.project} is not an unpacked HyperKitchen project`)
+    }
+    if (!refVersion || refVersion !== ctx.stockVersion) {
+      throw new Error(
+        `replacing files needs the same base ROM: source ${refVersion ?? '?'}, this ROM ${ctx.stockVersion ?? '?'}`
+      )
+    }
+  }
+  const parts = [...new Set(op.params.paths.map((p) => p.split('/')[0]))]
+  const ref = await WorkTree.open(joinPath(op.params.project, 'stock', 'fs'), parts)
+  const copy = async (rel: string): Promise<void> => {
+    const src = ref.abs(rel)
+    const st = await lstatAsync(src)
+    const meta = ref.meta(rel)
+    if (!meta) throw new Error(`${rel}: no metadata in the source ROM`)
+    if (st.isSymbolicLink()) throw new Error(`${rel}: symlinks are not supported`)
+    if (st.isDirectory()) {
+      await ctx.tree.addDir(rel, meta)
+      for (const n of (await readdirAsync(src)).sort()) await copy(`${rel}/${n}`)
+      return
+    }
+    if (ctx.tree.exists(rel)) {
+      if (!op.params.replace.includes(rel)) {
+        throw new Error(`${rel} already exists in the ROM; list it under replace to overwrite it`)
+      }
+      await ctx.tree.remove(rel)
+      r.modified.push(rel)
+      // The stock odex/vdex of a replaced jar or APK no longer match it.
+      if (/\.(apk|jar)$/.test(rel)) {
+        for (const a of artifactsOf(ctx.tree, rel)) {
+          await ctx.tree.remove(a)
+          r.removed.push(a)
+        }
+      }
+    } else r.added.push(rel)
+    await ctx.tree.addFile(rel, { from: src }, { fsRest: meta.fsRest, label: meta.label })
+  }
+  for (const p of op.params.paths) {
+    if (!ref.exists(p)) throw new Error(`${p} is not in the source ROM`)
+    await copy(p)
+  }
+  ctx.log(`  imported ${r.added.length} files, replaced ${r.modified.length}`)
+}
+
+FILE_OPS['import-from-rom'] = importFromRom as OpRunner
