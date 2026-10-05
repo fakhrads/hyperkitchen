@@ -68,8 +68,37 @@ async function checkTool(
   }
 }
 
+/** Mount point from `df -P <path>` output (last line; the mount point may contain spaces). */
+export function parseDfMountPoint(output: string): string | null {
+  const last = output.trim().split('\n').pop() ?? ''
+  const m = last.match(/\s\d+%\s+(.+)$/)
+  return m ? m[1] : null
+}
+
+/** Filesystem type of mountPoint from macOS `mount` output: "<dev> on <mp> (<type>, ...)". */
+export function parseMountType(output: string, mountPoint: string): string | null {
+  for (const line of output.split('\n')) {
+    const i = line.indexOf(` on ${mountPoint} (`)
+    if (i < 0) continue
+    const rest = line.slice(i + ` on ${mountPoint} (`.length)
+    return rest.split(/[,)]/)[0].trim()
+  }
+  return null
+}
+
 /** True when the filesystem under dir supports copy-on-write clones (APFS, btrfs, xfs). */
 export async function supportsClone(dir: string): Promise<boolean> {
+  if (process.platform === 'darwin') {
+    // libuv only clones through the Linux FICLONE ioctl: on macOS COPYFILE_FICLONE_FORCE
+    // always fails with ENOSYS and COPYFILE_FICLONE silently does a full copy. `cp -c`
+    // falls back to a full copy silently too, so ask for the filesystem type instead.
+    await mkdir(dir, { recursive: true })
+    const df = await run('df', ['-P', dir], { timeoutMs: 15000 })
+    const mp = df.code === 0 ? parseDfMountPoint(df.output) : null
+    if (!mp) return false
+    const mount = await run('mount', [], { timeoutMs: 15000 })
+    return mount.code === 0 && parseMountType(mount.output, mp) === 'apfs'
+  }
   const probeDir = join(dir, '.hk-clone-probe')
   await mkdir(probeDir, { recursive: true })
   const a = join(probeDir, 'a')

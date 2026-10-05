@@ -14,9 +14,9 @@ from the ROM itself.
 
 | Host | Status |
 |---|---|
-| macOS arm64 (Apple Silicon) | supported, tested in CI |
-| macOS x64 (Intel) | supported, packaged in CI |
-| Linux x64 | supported, tested locally and in CI |
+| macOS arm64 (Apple Silicon) | supported, tested locally (unit, smoke test of dev build and packaged app) |
+| macOS x64 (Intel) | supported, packaged and signature checked; not yet run on an Intel host |
+| Linux x64 | supported, tested locally (unit, smoke test of dev build and AppImage) |
 
 Windows is not supported.
 
@@ -48,12 +48,15 @@ HK_NET_TESTS=1 pnpm test   # also runs the network test that installs a real JRE
 ```sh
 pnpm build:linux                               # release/<version>/*.AppImage
 pnpm fetch-bins --platform darwin-arm64,darwin-x64
-pnpm build:mac                                 # release/<version>/*.dmg (run on macOS)
+pnpm build:mac                                 # release/<version>/*.dmg for the host arch (run on macOS)
+pnpm build && npx electron-builder --mac --x64  # Intel .dmg from an Apple Silicon Mac
 ```
 
-Builds are unsigned. On macOS, open the app the first time with right-click >
-Open, and use the Doctor's "Clear quarantine" button if bundled tools are
-blocked.
+macOS builds are ad-hoc signed, not notarized. A copy you build yourself opens
+directly. A downloaded copy is blocked by Gatekeeper on first launch: allow it
+in System Settings > Privacy & Security (Open Anyway), or remove the quarantine
+attribute with `xattr -r -d com.apple.quarantine /Applications/HyperKitchen.app`.
+The Doctor's "Clear quarantine" button does the same for the bundled tools.
 
 ## How it works
 

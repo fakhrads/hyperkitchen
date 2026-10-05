@@ -5,7 +5,13 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { platformKey } from '../../src/shared/platform'
 import { SUPPORTED_PLATFORMS, type BinManifest } from '../../src/shared/types'
-import { matchProbe, runDoctor } from '../../src/worker/doctor'
+import {
+  matchProbe,
+  parseDfMountPoint,
+  parseMountType,
+  runDoctor,
+  supportsClone
+} from '../../src/worker/doctor'
 
 const root = resolve(__dirname, '../..')
 const manifest = JSON.parse(
@@ -56,6 +62,37 @@ describe('binary manifest', () => {
       version: '1.5.5'
     })
     expect(matchProbe('nothing', 'MagiskBoot').ok).toBe(false)
+  })
+})
+
+describe('clone detection', () => {
+  it('parses df -P and mount output (macOS format)', () => {
+    const df =
+      'Filesystem   512-blocks      Used Available Capacity  Mounted on\n' +
+      '/dev/disk3s5  478724992 378149840  44862952    90%    /System/Volumes/Data\n'
+    expect(parseDfMountPoint(df)).toBe('/System/Volumes/Data')
+    expect(
+      parseDfMountPoint(
+        'Filesystem 512-blocks Used Available Capacity Mounted on\n/dev/disk5s1 10 5 5 50% /Volumes/My Disk\n'
+      )
+    ).toBe('/Volumes/My Disk')
+    const mount =
+      '/dev/disk3s1s1 on / (apfs, sealed, local, read-only, journaled)\n' +
+      '/dev/disk3s5 on /System/Volumes/Data (apfs, local, journaled, nobrowse, protect, root data)\n' +
+      '/dev/disk4s1 on /Volumes/USB (msdos, local, nodev, nosuid, noowners)\n'
+    expect(parseMountType(mount, '/System/Volumes/Data')).toBe('apfs')
+    expect(parseMountType(mount, '/')).toBe('apfs')
+    expect(parseMountType(mount, '/Volumes/USB')).toBe('msdos')
+    expect(parseMountType(mount, '/nope')).toBeNull()
+  })
+
+  it.runIf(process.platform === 'darwin')('reports APFS as clone capable on macOS', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'hk-clone-'))
+    try {
+      expect(await supportsClone(tmp)).toBe(true)
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
   })
 })
 

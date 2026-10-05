@@ -1,6 +1,6 @@
 # HyperKitchen: PLAN
 
-Status: draft untuk review, belum ada kode. Riset dilakukan 2026-10-04 terhadap clone shallow semua repo di bawah.
+Status: M1 selesai (Linux x64 dan macOS arm64). Riset dilakukan 2026-10-04 terhadap clone shallow semua repo di bawah.
 
 ## 1. Hasil riset
 
@@ -117,7 +117,9 @@ Electron 44 + electron-vite 5 + electron-builder 26, TypeScript strict, React 19
   build/<timestamp>/  output, build.log, checksums.sha256, recipe snapshot
 ```
 
-- Build selalu: salin `stock/` ke `work/` (pakai `fs.copyFile` dengan `COPYFILE_FICLONE` agar instan di APFS/btrfs, fallback copy biasa), jalankan recipe, repack. ROM asli tidak pernah dimutasi.
+- Build selalu: salin `stock/` ke `work/` dengan clone copy-on-write bila filesystem mendukung, fallback copy biasa, lalu jalankan recipe, repack. ROM asli tidak pernah dimutasi.
+  - Linux (btrfs/xfs): `fs.copyFile` dengan `COPYFILE_FICLONE` (libuv memakai `ioctl(FICLONE)`).
+  - macOS (APFS): **jangan** pakai `fs.copyFile`. Terverifikasi di libuv 1.52.1 (`src/unix/fs.c`, `uv__fs_copyfile`): clone hanya lewat `ioctl(FICLONE)` yang khusus Linux, sehingga di macOS `COPYFILE_FICLONE_FORCE` selalu `ENOSYS` dan `COPYFILE_FICLONE` diam-diam menyalin penuh. Pakai `clonefile(2)` lewat `cp -c` (man cp: jatuh ke `copyfile(3)` bila clone tidak bisa). Implementasi di M3.
 - Operasi recipe: `{id, type, enabled, params}`. Tipe: `debloat`, `set-props`, `remove-cn-gms-flag`, `inject-gapps`, `patch-framework`, `patch-apk`, `edit-apk`, `battery-defaults`, `branding`, `add-file`, `remove-file`. Setiap operasi menulis laporan perubahan (file tambah/hapus/ubah) untuk diff view.
 - Tampilan: preset terpandu **dan** file tree mentah + editor recipe (JSON + form).
 
@@ -127,7 +129,7 @@ APKEditor, Apktool, smali, apksigner butuh JRE 17+. Host ini belum punya Java. U
 
 ### 2.6 Testing di macOS
 
-Mesin ini Linux x86_64. Saya tidak bisa menjalankan build macOS di sini. Usulan: GitHub Actions dengan runner `macos-14` (arm64) dan `ubuntu-latest` menjalankan unit test, smoke test Electron, dan packaging untuk tiap milestone. Uji ROM sungguhan (GB-an data) dilakukan lokal di Linux, dan kamu menjalankan hal yang sama di Mac-mu.
+Verifikasi macOS arm64 dilakukan lokal di Mac (Apple Silicon) karena GitHub Actions tidak bisa jalan selama akun GitHub terkunci. Workflow `.github/workflows/ci.yml` (runner macOS arm64 dan Ubuntu: unit test, smoke test Electron, packaging) tetap disimpan untuk saat akun aktif lagi. Mac ini tidak punya Rosetta, jadi build macOS x64 hanya dipaket dan dicek signature-nya, belum dijalankan.
 
 ## 3. Lisensi
 
@@ -135,10 +137,11 @@ Mesin ini Linux x86_64. Saya tidak bisa menjalankan build macOS di sini. Usulan:
 
 ## 4. Milestone
 
-Setiap milestone selesai bila: jalan di Linux x64 (lokal) dan macOS arm64 (CI), ada smoke test, ada commit.
+Setiap milestone selesai bila: jalan di Linux x64 dan macOS arm64 (lokal, atau CI bila tersedia), ada smoke test, ada commit.
 
-- [x] **M1 Foundation**: scaffold (perintah diverifikasi dari docs electron-vite), IPC + job runner utilityProcess dengan progres dan cancel, binaries manager + `fetch-bins` + Doctor, create/open project, settings. Paket `.AppImage` dan `.app`/`.dmg` (unsigned) yang bisa dibuka. CI GitHub Actions.
-  - Status 2026-10-04: selesai dan terverifikasi di Linux x64 (unit test, smoke test dev + AppImage hasil paket, install JRE terkelola). Verifikasi macOS arm64 **tertunda**: GitHub Actions tidak bisa jalan karena akun GitHub terkunci (masalah billing). Workflow sudah siap di `.github/workflows/ci.yml`.
+- [x] **M1 Foundation**: scaffold (perintah diverifikasi dari docs electron-vite), IPC + job runner utilityProcess dengan progres dan cancel, binaries manager + `fetch-bins` + Doctor, create/open project, settings. Paket `.AppImage` dan `.app`/`.dmg` (ad-hoc signed, tanpa notarisasi) yang bisa dibuka. CI GitHub Actions.
+  - Status 2026-10-04: selesai dan terverifikasi di Linux x64 (unit test, smoke test dev + AppImage hasil paket, install JRE terkelola).
+  - Status 2026-10-05: terverifikasi di macOS 27.0.1 arm64 (lokal): typecheck, lint, unit test, install JRE terkelola (layout `Contents/Home`), smoke test dev build dan `.app` hasil paket. Semua binary darwin-arm64 dieksekusi langsung (ad-hoc signed). `xattr -r -l` / `xattr -r -d com.apple.quarantine` diuji nyata: binary ber-quarantine di-SIGKILL, setelah atribut dihapus jalan normal. Perbaikan: deteksi clone di macOS (lihat 2.4) kini membaca tipe filesystem lewat `df -P` + `mount`; paket mac kini ad-hoc signed (`identity: '-'`, `hardenedRuntime: false`, keduanya dari schema electron-builder 26.15.3) karena `identity: null` meninggalkan signature yang tidak valid sehingga salinan unduhan dianggap "rusak". Build x64 dipaket dan lolos `codesign --verify`, belum dijalankan (tidak ada Rosetta).
 - [ ] **M2 Unpack**: input OTA zip / payload.bin / fastboot tgz / super.img / folder. lpunpack + simg2img di TS, erofs extract dengan config. UI: pohon partisi, build.prop per partisi, inventaris APK (package, versionCode, signer SHA-256). Minta `romdiff.zip` darimu di awal M2.
 - [ ] **M3 Repack + output flashable** (paling berisiko): rebuild erofs/ext4 dengan fs_config + file_contexts asli, lpmake dengan geometri super dari metadata stock (bukan tebakan), vbmeta flags disable (dengan peringatan jelas). Output pertama: **paket fastboot** (images + `flash.sh` untuk mac/linux yang kamu jalankan sendiri, tool tidak pernah memanggil fastboot). Recovery zip menyusul. **Gerbang wajib:** unpack lalu repack tanpa perubahan, bandingkan isi file per file (bukan byte image), lalu kamu uji boot di onyx sebelum ada edit apa pun. Regenerasi payload.bin OTA ditunda (butuh `delta_generator`, hanya ada versi Linux).
 - [ ] **M4 Debloat + props**: hapus app per package/path, peringatan dependensi (shared lib, `uses-library`, priv-app permission xml, overlay target), editor build.prop lintas partisi, kontrol region/locale, diff view.
@@ -166,8 +169,8 @@ Setiap milestone selesai bila: jalan di Linux x64 (lokal) dan macOS arm64 (CI), 
 
 ## 6. Repo dan push
 
-- Nama: `hyperkitchen`. Root repo: folder ini (`~/projects/hyperos-tools`), `git init` sendiri (folder induk `~/projects` adalah repo lain).
-- Token: key `GITHUB_TOKEN` di `~/.hermes/.env`, dipakai hanya untuk auth remote saat push lewat credential helper sementara, tidak ditulis ke `.git/config`, tidak dicetak, tidak di-commit.
+- Nama: `hyperkitchen`. Root repo: `~/projects/hyperos-tools` di server Linux, `~/Projects/hyperkitchen` di Mac.
+- Token: di server, key `GITHUB_TOKEN` di `~/.hermes/.env`, dipakai hanya untuk auth remote saat push lewat credential helper sementara, tidak ditulis ke `.git/config`, tidak dicetak, tidak di-commit. Di Mac memakai credential git yang sudah ada (osxkeychain).
 - `.gitignore`: `node_modules`, `out/`, `dist/`, `release/`, `resources/bin/*/` (binary diunduh), `*.img`, `*.bin`, `*.zip`, `*.tgz`, `*.zst`, `*.br`, `*.dat`, folder project, `.env*`.
 
 ## 7. Yang perlu darimu

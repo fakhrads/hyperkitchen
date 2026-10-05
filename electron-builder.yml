@@ -37,8 +37,14 @@ mac:
   category: public.app-category.developer-tools
   target:
     - target: dmg
-  # Unsigned personal build. Gatekeeper: right-click > Open on first launch.
-  identity: null
+  # Ad-hoc signed, no Developer ID. With `identity: null` the bundle keeps
+  # Electron's linker signature, which no longer matches after packaging, so a
+  # downloaded (quarantined) copy is reported as "damaged". Ad-hoc signing
+  # requires hardenedRuntime off (library validation rejects the prebuilt
+  # Electron frameworks). Gatekeeper still blocks a downloaded copy until it is
+  # allowed in System Settings > Privacy & Security.
+  identity: '-'
+  hardenedRuntime: false
   notarize: false
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
