@@ -2,6 +2,7 @@
 // <project>/recipe.json. Shared by main (validation), worker (execution) and renderer (editor).
 
 import { z } from 'zod'
+import { MOD_ID } from './appmod'
 
 /** A path inside the extracted trees, starting with the partition, e.g. product/app/Foo. */
 const TreePath = z
@@ -71,6 +72,15 @@ export const OperationSchema = z.discriminatedUnion('type', [
       paths: z.array(TreePath).min(1),
       /** Tree paths that may replace an existing file in work/. */
       replace: z.array(TreePath).default([])
+    })
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('app-mod'),
+    enabled: z.boolean().default(true),
+    params: z.object({
+      /** A mod in <project>/mods/<mod> (see shared/appmod.ts). */
+      mod: z.string().regex(MOD_ID)
     })
   }),
   z.object({

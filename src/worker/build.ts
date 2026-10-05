@@ -264,6 +264,7 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
         throw new Error(`smali patches need Java ${MIN_JAVA_MAJOR}+ (install it from the Doctor)`)
       }
       info.operations = await applyRecipe(recipe, {
+        projectPath: params.projectPath,
         workFs: join(workDir, 'fs'),
         partitions: stock.partitions.filter((p) => p.extracted).map((p) => p.name),
         apks: inventory.apks,

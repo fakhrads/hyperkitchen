@@ -16,6 +16,22 @@ import {
   manifestPath,
   updaterPath
 } from './paths'
+import {
+  checkModJob,
+  modDeleteFile,
+  modListDir,
+  modMethods,
+  modReadFile,
+  modRevertFile,
+  modSetString,
+  modsList,
+  modStringLocales,
+  modStrings,
+  modStub,
+  modWriteFile,
+  ModIdSchema,
+  type ModJobKind
+} from './appmod'
 import { createProject, listProjects, openProject } from './projects'
 import { SettingsPatchSchema, SettingsStore } from './settings'
 import {
@@ -96,8 +112,23 @@ async function rememberProject(path: string): Promise<void> {
   })
 }
 
+/** Job id -> project:mod, to keep one writing job per mod. */
+const runningModKey = new Map<string, string>()
+
 const JobStartSchema = z.object({
-  kind: z.enum(['selftest', 'doctor', 'java-install', 'clear-quarantine', 'unpack', 'build']),
+  kind: z.enum([
+    'selftest',
+    'doctor',
+    'java-install',
+    'clear-quarantine',
+    'unpack',
+    'build',
+    'mod-create',
+    'mod-open',
+    'mod-save',
+    'mod-search',
+    'mod-export'
+  ]),
   params: z.record(z.string(), z.unknown()).default({})
 })
 
@@ -186,6 +217,54 @@ function registerIpc(): void {
     shell.showItemInFolder(await buildDir(z.string().min(1).parse(p), z.string().parse(id)))
   })
 
+  const S = z.string()
+  ipcMain.handle(IPC.modsList, (_e, p: unknown) => modsList(S.min(1).parse(p)))
+  ipcMain.handle(IPC.modsListDir, (_e, p: unknown, id: unknown, rel: unknown) =>
+    modListDir(S.parse(p), S.parse(id), S.parse(rel))
+  )
+  ipcMain.handle(IPC.modsRead, (_e, p: unknown, id: unknown, rel: unknown) =>
+    modReadFile(S.parse(p), S.parse(id), S.min(1).parse(rel))
+  )
+  ipcMain.handle(IPC.modsWrite, (_e, p: unknown, id: unknown, rel: unknown, text: unknown) =>
+    modWriteFile(S.parse(p), S.parse(id), S.min(1).parse(rel), S.parse(text))
+  )
+  ipcMain.handle(IPC.modsRevert, (_e, p: unknown, id: unknown, rel: unknown) =>
+    modRevertFile(S.parse(p), S.parse(id), S.min(1).parse(rel))
+  )
+  ipcMain.handle(IPC.modsDelete, (_e, p: unknown, id: unknown, rel: unknown) =>
+    modDeleteFile(S.parse(p), S.parse(id), S.min(1).parse(rel))
+  )
+  ipcMain.handle(IPC.modsMethods, (_e, p: unknown, id: unknown, rel: unknown) =>
+    modMethods(S.parse(p), S.parse(id), S.min(1).parse(rel))
+  )
+  ipcMain.handle(
+    IPC.modsStub,
+    (_e, p: unknown, id: unknown, rel: unknown, sig: unknown, value: unknown) =>
+      modStub(S.parse(p), S.parse(id), S.min(1).parse(rel), sig, value)
+  )
+  ipcMain.handle(IPC.modsStringLocales, (_e, p: unknown, id: unknown) =>
+    modStringLocales(S.parse(p), S.parse(id))
+  )
+  ipcMain.handle(IPC.modsStrings, (_e, p: unknown, id: unknown, values: unknown) =>
+    modStrings(S.parse(p), S.parse(id), S.parse(values))
+  )
+  ipcMain.handle(
+    IPC.modsSetString,
+    (_e, p: unknown, id: unknown, values: unknown, name: unknown, value: unknown) =>
+      modSetString(
+        S.parse(p),
+        S.parse(id),
+        S.parse(values),
+        S.parse(name),
+        S.nullable().parse(value)
+      )
+  )
+  ipcMain.handle(IPC.modsReveal, async (_e, p: unknown, id: unknown) => {
+    const proj = await openProject(S.parse(p))
+    const dir = join(proj.path, 'mods', ModIdSchema.parse(id), 'out')
+    shell.showItemInFolder(dir)
+  })
+
   ipcMain.handle(IPC.jobsList, () => jobs.list())
   ipcMain.handle(IPC.jobsStart, async (_e, kind: unknown, params: unknown) => {
     const parsed = JobStartSchema.parse({ kind, params: params ?? {} })
@@ -204,6 +283,29 @@ function registerIpc(): void {
             'build',
             await checkBuildParams(parsed.params, `HyperKitchen ${app.getVersion()}`)
           )
+    }
+    if (parsed.kind.startsWith('mod-')) {
+      const kind = parsed.kind as ModJobKind
+      const params = await checkModJob(kind, parsed.params)
+      // One job per mod at a time (they share its cache); searches only read.
+      if (
+        kind !== 'mod-search' &&
+        jobs
+          .list()
+          .some(
+            (j) =>
+              j.status === 'running' &&
+              j.kind.startsWith('mod-') &&
+              j.kind !== 'mod-search' &&
+              runningModKey.get(j.id) ===
+                `${params.projectPath}:${String(params.id ?? params.target)}`
+          )
+      ) {
+        throw new Error('this app is busy with another job')
+      }
+      const id = await jobs.start(kind, params)
+      runningModKey.set(id, `${params.projectPath}:${String(params.id ?? params.target)}`)
+      return id
     }
     return jobs.start(parsed.kind, parsed.params)
   })

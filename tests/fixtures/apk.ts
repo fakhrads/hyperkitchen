@@ -1,6 +1,8 @@
 // Builders for synthetic APK fixtures: binary XML manifest (ResourceTypes.h), stored-only ZIP
 // (APPNOTE 4.3), APK Signing Block (apksig) and DER. Shared by unit and e2e tests.
 
+import { crc32 } from 'node:zlib'
+
 /** Tiny AXML encoder following ResourceTypes.h, enough for manifest tests. */
 export function axml(
   elements: Array<{
@@ -119,11 +121,13 @@ export function zip(files: Array<[string, Buffer]>, sigBlock?: Buffer): Buffer {
     const n = Buffer.from(name)
     const lh = Buffer.alloc(30)
     lh.writeUInt32LE(0x04034b50, 0)
+    lh.writeUInt32LE(crc32(data) >>> 0, 14)
     lh.writeUInt32LE(data.length, 18)
     lh.writeUInt32LE(data.length, 22)
     lh.writeUInt16LE(n.length, 26)
     const cd = Buffer.alloc(46)
     cd.writeUInt32LE(0x02014b50, 0)
+    cd.writeUInt32LE(crc32(data) >>> 0, 16)
     cd.writeUInt32LE(data.length, 20)
     cd.writeUInt32LE(data.length, 24)
     cd.writeUInt16LE(n.length, 28)

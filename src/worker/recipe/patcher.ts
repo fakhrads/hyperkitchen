@@ -1,24 +1,30 @@
 // Applies smali patch sets to jars and APKs in work/fs.
 //
 // Per target file: apktool decode (no resources), edit smali with rules that must match an
-// exact number of times, apktool build, take only the classesN.dex files whose smali changed,
-// and rewrite the original zip with them (every other entry, the alignment and the original
-// signing block are kept; see formats/zipwrite.ts). The new dex files are decoded again and
-// must reproduce the edited smali exactly. Stale ART artifacts (odex/vdex/art) and fs-verity
-// metadata (.fsv_meta) of the patched file are removed, so ART loads the new dex.
+// exact number of times, then appmod/rebuild.ts puts only the changed classesN.dex into the
+// original zip and checks that they decode to exactly the edited smali. Stale ART artifacts
+// (odex/vdex/art) and fs-verity metadata (.fsv_meta) of the patched file are removed, so ART
+// loads the new dex.
 //
 // Boot classpath jars are refused: their code is precompiled into the boot image.
 
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, join, posix } from 'node:path'
+import {
+  decode,
+  decodeArgs,
+  rebuildDecoded,
+  smaliDirs,
+  walkFiles,
+  type DecodedChanges
+} from '../appmod/rebuild'
 import { throwIfCancelled } from '../context'
-import { ZipFile } from '../formats/zip'
-import { rewriteZip } from '../formats/zipwrite'
-import { run } from '../spawn'
 import { patchSet, type SmaliRule } from './patchsets'
 import type { WorkTree } from './tree'
+
+export { normalizeSmali } from '../appmod/rebuild'
 
 export interface PatchEnv {
   java: string
@@ -123,57 +129,12 @@ export function applyRule(
   return text.slice(0, start) + body + text.slice(end)
 }
 
-/**
- * Smali compared line by line, ignoring blank lines, the alignment `nop` the assembler adds or
- * drops before a switch/array payload, and default static field values (not stored in dex).
- * Every other line must be identical.
- */
-export function normalizeSmali(text: string): string {
-  const lines = text
-    .split('\n')
-    .filter((l) => l.trim() !== '')
-    // dex does not store static field values that equal the type's default.
-    .map((l) =>
-      /^\.field .*\bstatic\b/.test(l) ? l.replace(/ = (?:false|0x0L?|0|null|0\.0f?)$/, '') : l
-    )
-  return lines
-    .filter(
-      (l, i) =>
-        !(
-          l.trim() === 'nop' && /^\s*:(?:sswitch_data|pswitch_data|array)_/.test(lines[i + 1] ?? '')
-        )
-    )
-    .join('\n')
-}
-
-async function smaliDirs(dec: string): Promise<string[]> {
-  return (await readdir(dec)).filter((n) => /^smali(_classes\d+)?$/.test(n)).sort()
-}
-
-const dexName = (smaliDir: string): string =>
-  smaliDir === 'smali' ? 'classes.dex' : `${smaliDir.slice('smali_'.length)}.dex`
-
 async function findClass(dec: string, cls: string): Promise<{ dir: string; file: string }> {
   for (const d of await smaliDirs(dec)) {
     const f = join(dec, d, `${cls}.smali`)
     if (existsSync(f)) return { dir: d, file: f }
   }
   throw new Error(`class ${cls} not found`)
-}
-
-async function walkSmali(dir: string): Promise<string[]> {
-  const out: string[] = []
-  for (const e of await readdir(dir, { withFileTypes: true })) {
-    const p = join(dir, e.name)
-    if (e.isDirectory()) out.push(...(await walkSmali(p)))
-    else if (e.name.endsWith('.smali')) out.push(p)
-  }
-  return out
-}
-
-async function apktool(env: PatchEnv, args: string[]): Promise<void> {
-  const r = await run(env.java, ['-jar', env.apktool, ...args], { signal: env.signal })
-  if (r.code !== 0) throw new Error(`apktool ${args[0]} failed: ${r.output.slice(-400)}`)
 }
 
 /** ART and fs-verity files that belong to a jar or APK in the tree. */
@@ -228,8 +189,8 @@ export async function patchTarget(
   await rm(work, { recursive: true, force: true })
   await mkdir(work, { recursive: true })
   const dec = join(work, 'dec')
-  // apktool d: -f overwrite, -r keep resources as they are, --no-assets (apktool d --help).
-  await apktool(env, ['d', '-q', '-f', '-r', '--no-assets', '-o', dec, tree.abs(path)])
+  const args = decodeArgs({ resources: false, assets: false })
+  await decode(env, tree.abs(path), dec, args)
 
   const touched = new Set<string>()
   for (const rule of rules) {
@@ -237,7 +198,7 @@ export async function patchTarget(
     if (rule.kind === 'string-replace') {
       let count = 0
       for (const d of await smaliDirs(dec)) {
-        for (const f of await walkSmali(join(dec, d))) {
+        for (const f of await walkFiles(join(dec, d), (n) => n.endsWith('.smali'))) {
           const text = await readFile(f, 'utf8')
           const next = text.replace(
             /^([ \t]*const-string(?:\/jumbo)? [vp]\d+, ")(.*)("[ \t]*)$/gm,
@@ -263,44 +224,18 @@ export async function patchTarget(
     }
   }
 
-  // apktool b -o <file> <dir> (apktool b --help).
-  const built = join(work, `built-${basename(path)}`)
-  await apktool(env, ['b', '-q', '-o', built, dec])
-  const replacements = new Map<string, Buffer>()
-  const zip = await ZipFile.open(built)
-  try {
-    for (const d of touched) {
-      const data = await zip.read(dexName(d), 512 * 1024 * 1024)
-      if (!data) throw new Error(`rebuilt ${path} has no ${dexName(d)}`)
-      replacements.set(dexName(d), data)
-    }
-  } finally {
-    await zip.close()
-  }
   const out = join(work, `out-${basename(path)}`)
-  await rewriteZip(tree.abs(path), out, replacements)
-
-  // Gate: the new dex files must decode to exactly the smali we wrote. The only tolerated
-  // difference is the alignment `nop` the assembler adds or drops before a switch or array
-  // payload when code before it moves (it pads the payload to 4 bytes).
-  const check = join(work, 'check')
-  await apktool(env, ['d', '-q', '-f', '-r', '--no-assets', '-o', check, out])
-  for (const d of touched) {
-    const want = await walkSmali(join(dec, d))
-    const got = new Set(await walkSmali(join(check, d)))
-    for (const f of want) {
-      const g = f.replace(dec, check)
-      if (!got.has(g)) throw new Error(`${path}: ${f.slice(dec.length)} missing after rebuild`)
-      got.delete(g)
-      const [a, b] = await Promise.all([readFile(f, 'utf8'), readFile(g, 'utf8')])
-      if (normalizeSmali(a) !== normalizeSmali(b)) {
-        throw new Error(
-          `${path}: rebuilt dex does not match the patched smali in ${f.slice(dec.length + 1)}`
-        )
-      }
-    }
-    if (got.size) throw new Error(`${path}: rebuild produced unexpected classes`)
-  }
+  const changes: DecodedChanges = { smaliDirs: touched, resources: false, raw: new Map() }
+  const rebuilt = await rebuildDecoded({
+    env,
+    orig: tree.abs(path),
+    dec,
+    args,
+    changes,
+    work,
+    out,
+    label: path
+  })
 
   await tree.writeExisting(path, await readFile(out))
   const removedArtifacts: string[] = []
@@ -310,13 +245,13 @@ export async function patchTarget(
   }
   await rm(work, { recursive: true, force: true })
   env.log(
-    `patched ${path} (${setIds.join(', ')}): ${[...replacements.keys()].join(', ')}${verified ? '' : ' [build not verified for these rules]'}`
+    `patched ${path} (${setIds.join(', ')}): ${rebuilt.replaced.join(', ')}${verified ? '' : ' [build not verified for these rules]'}`
   )
   return {
     path,
     sets: setIds,
     verifiedBuild: verified,
-    changedDex: [...replacements.keys()],
+    changedDex: rebuilt.replaced,
     removedArtifacts
   }
 }

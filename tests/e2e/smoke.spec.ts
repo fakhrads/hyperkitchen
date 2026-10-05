@@ -177,3 +177,12 @@ test('debloats an app through the recipe and builds without it', async () => {
   const work = join(tmp, 'projects', 'onyx unpack', 'work', 'fs', 'system', 'system', 'app', 'Test')
   expect(existsSync(work)).toBe(false)
 })
+
+test('opens the app editor from the APK list', async () => {
+  // The fixture APK has no dex or resources to decode; this checks the tab and the picker.
+  await page.getByTestId('tab-apps').click()
+  await expect(page.getByTestId('mod-target')).toContainText('com.example.test')
+  await page.getByTestId('mod-filter').fill('no-such-app')
+  await expect(page.getByTestId('mod-target')).not.toContainText('com.example.test')
+  await expect(page.getByTestId('mod-create')).toBeDisabled()
+})

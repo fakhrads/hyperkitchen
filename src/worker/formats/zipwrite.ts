@@ -7,6 +7,9 @@
 //   (ApkSigner.createExtraFieldToAlignData: header ID 0xd935, u16 alignment, zero padding).
 //   resources.arsc and native libraries rely on this.
 // - Replacement data is written with the original entry's compression method.
+// - Entries can be removed, and new ones appended after the existing ones (stored entries
+//   aligned like apksig/zipalign: 16 KiB for .so, 4 bytes otherwise), with a fixed DOS time so
+//   the output is reproducible.
 // - An APK Signing Block, if present, is copied unchanged right before the central directory,
 //   as PureCN does. The signatures no longer match the content; Android does not verify APKs
 //   on system partitions (InstallPackageHelper: skipVerify = scanSystemPartition) and only
@@ -83,10 +86,33 @@ function inputAlignment(dataOffset: number): number {
   return 1
 }
 
+export interface NewEntry {
+  name: string
+  data: Buffer
+  /** Deflate the data (method 8) or store it (method 0). */
+  compress: boolean
+}
+
+export interface RewriteOptions {
+  /** Entries to drop. */
+  remove?: (name: string) => boolean
+  /** Entries written after the existing ones, in this order. */
+  add?: NewEntry[]
+}
+
+/** DOS date 1981-01-01 00:00, the fixed timestamp aapt2 and apksigner use for new entries. */
+const DOS_TIME = 0
+const DOS_DATE = (1 << 5) | 1 | ((1981 - 1980) << 9)
+
+function storedAlignment(name: string): number {
+  return name.endsWith('.so') ? 16384 : 4
+}
+
 export async function rewriteZip(
   src: string,
   dst: string,
-  replacements: Map<string, Buffer>
+  replacements: Map<string, Buffer>,
+  opts: RewriteOptions = {}
 ): Promise<void> {
   const fh = await open(src, 'r')
   try {
@@ -106,11 +132,19 @@ export async function rewriteZip(
     const cdSize = eocd.readUInt32LE(12)
     const cdOffset = eocd.readUInt32LE(16)
     if (count === 0xffff || cdOffset === 0xffffffff) throw new Error('zip64 is not supported')
-    const entries = parseCentral(await readExact(fh, cdOffset, cdSize), count)
+    const all = parseCentral(await readExact(fh, cdOffset, cdSize), count)
+    const entries = opts.remove ? all.filter((x) => !opts.remove?.(x.name)) : all
     for (const name of replacements.keys()) {
       if (!entries.some((x) => x.name === name))
         throw new Error(`${src}: no entry ${name} to replace`)
     }
+    const added = opts.add ?? []
+    const names = new Set(entries.map((x) => x.name))
+    for (const a of added) {
+      if (names.has(a.name)) throw new Error(`${src}: entry ${a.name} already exists`)
+      names.add(a.name)
+    }
+    if (names.size > 0xfffe) throw new Error('zip64 is not supported')
 
     // APK Signing Block, copied verbatim.
     let sigBlock: Buffer = Buffer.alloc(0)
@@ -183,6 +217,39 @@ export async function rewriteZip(
         await write(data)
         if (descriptor.length) await write(descriptor)
       }
+      const addedCentral: Buffer[] = []
+      for (const a of added) {
+        const name = Buffer.from(a.name, 'utf8')
+        const utf8 = name.length !== a.name.length ? 0x800 : 0
+        const data = a.compress ? deflateRawSync(a.data) : a.data
+        const crc = crc32(a.data) >>> 0
+        const extra = a.compress
+          ? Buffer.alloc(0)
+          : alignedExtra(Buffer.alloc(0), pos + 30 + name.length, storedAlignment(a.name))
+        const lh = Buffer.alloc(30)
+        lh.writeUInt32LE(LOC_SIG, 0)
+        lh.writeUInt16LE(a.compress ? 20 : 10, 4)
+        lh.writeUInt16LE(utf8, 6)
+        lh.writeUInt16LE(a.compress ? 8 : 0, 8)
+        lh.writeUInt16LE(DOS_TIME, 10)
+        lh.writeUInt16LE(DOS_DATE, 12)
+        lh.writeUInt32LE(crc, 14)
+        lh.writeUInt32LE(data.length, 18)
+        lh.writeUInt32LE(a.data.length, 22)
+        lh.writeUInt16LE(name.length, 26)
+        lh.writeUInt16LE(extra.length, 28)
+        const ch = Buffer.alloc(46)
+        ch.writeUInt32LE(CEN_SIG, 0)
+        ch.writeUInt16LE(a.compress ? 20 : 10, 4) // version made by: MS-DOS
+        lh.copy(ch, 6, 4, 30) // version needed .. name length
+        ch.writeUInt16LE(0, 30) // no extra in the central record
+        ch.writeUInt32LE(pos, 42)
+        addedCentral.push(Buffer.concat([ch, name]))
+        await write(lh)
+        await write(name)
+        await write(extra)
+        await write(data)
+      }
       if (sigBlock.length && pos % sigBlockAlign !== 0) {
         await write(Buffer.alloc(sigBlockAlign - (pos % sigBlockAlign)))
       }
@@ -200,7 +267,10 @@ export async function rewriteZip(
         }
         await write(h)
       }
+      for (const h of addedCentral) await write(h)
       const newEocd = Buffer.from(eocd)
+      newEocd.writeUInt16LE(names.size, 8)
+      newEocd.writeUInt16LE(names.size, 10)
       newEocd.writeUInt32LE(pos - cdStart, 12)
       newEocd.writeUInt32LE(cdStart, 16)
       await write(newEocd)

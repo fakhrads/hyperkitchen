@@ -106,6 +106,14 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   patch sets (notifications, Greezer, PowerKeeper, Joyose), with a PureCN
   preset. Smali patches keep the original APK signature blocks; Android does
   not verify APKs on system partitions, so the apps keep their identity.
+- **App editor**: open any APK or jar of the ROM (apktool, with every resource
+  provider of the ROM installed as a framework), browse and search the decode,
+  edit smali and resources, stub methods (e.g. an ad check that returns false)
+  and edit strings. Saving records an overlay in `mods/<id>/`: only the files
+  that differ from the stock decode, each with the hash of the file it was made
+  on. An `app-mod` recipe operation applies it at build time to a fresh decode,
+  replaces only the changed dex (and the resources when they were edited),
+  keeps the stock signing block, and decodes the result again to check it.
 
 Put the projects folder on a **case-sensitive** filesystem: Android trees can
 hold names that differ only in case. On macOS, an APFS (Case-sensitive) volume

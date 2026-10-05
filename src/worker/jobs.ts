@@ -5,6 +5,7 @@ import { installManagedJre } from './java'
 import { run } from './spawn'
 import { unpack } from './unpack'
 import { build } from './build'
+import { modCreateJob, modExportJob, modOpenJob, modSaveJob, modSearchJob } from './appmod/jobs'
 
 /**
  * Self-test: exercises progress, logging, a real child process and cancel.
@@ -46,5 +47,11 @@ export const handlers: Record<JobKind, JobHandler> = {
       verify: params.verify !== false,
       zip: params.zip !== false,
       generator: String(params.generator ?? 'HyperKitchen')
-    })
+    }),
+  // App editor jobs: params are validated in main (ModJobSchemas).
+  'mod-create': (ctx, p) => modCreateJob(ctx, p as Parameters<typeof modCreateJob>[1]),
+  'mod-open': (ctx, p) => modOpenJob(ctx, p as Parameters<typeof modOpenJob>[1]),
+  'mod-save': (ctx, p) => modSaveJob(ctx, p as Parameters<typeof modSaveJob>[1]),
+  'mod-search': (ctx, p) => modSearchJob(ctx, p as Parameters<typeof modSearchJob>[1]),
+  'mod-export': (ctx, p) => modExportJob(ctx, p as Parameters<typeof modExportJob>[1])
 }

@@ -26,6 +26,8 @@ function summary(op: Operation): string {
       return '/data stored unencrypted'
     case 'gapps':
       return op.params.zip
+    case 'app-mod':
+      return `mods/${op.params.mod}`
     case 'import-from-rom':
       return `${op.params.paths.length} paths from ${op.params.project}${op.params.replace.length ? `, ${op.params.replace.length} replacing stock` : ''}`
   }

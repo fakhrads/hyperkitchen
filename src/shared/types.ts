@@ -189,7 +189,17 @@ export interface DirEntry {
 // ---------------------------------------------------------------- jobs
 
 export type JobKind =
-  'selftest' | 'doctor' | 'java-install' | 'clear-quarantine' | 'unpack' | 'build'
+  | 'selftest'
+  | 'doctor'
+  | 'java-install'
+  | 'clear-quarantine'
+  | 'unpack'
+  | 'build'
+  | 'mod-create'
+  | 'mod-open'
+  | 'mod-save'
+  | 'mod-search'
+  | 'mod-export'
 
 export type JobStatus = 'running' | 'done' | 'failed' | 'cancelled'
 

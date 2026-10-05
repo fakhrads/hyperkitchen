@@ -38,6 +38,21 @@ const api: HkApi = {
     list: (p) => ipcRenderer.invoke(IPC.buildsList, p),
     reveal: (p, id) => ipcRenderer.invoke(IPC.buildsReveal, p, id)
   },
+  mods: {
+    list: (p) => ipcRenderer.invoke(IPC.modsList, p),
+    listDir: (p, id, rel) => ipcRenderer.invoke(IPC.modsListDir, p, id, rel),
+    read: (p, id, rel) => ipcRenderer.invoke(IPC.modsRead, p, id, rel),
+    write: (p, id, rel, text) => ipcRenderer.invoke(IPC.modsWrite, p, id, rel, text),
+    revert: (p, id, rel) => ipcRenderer.invoke(IPC.modsRevert, p, id, rel),
+    remove: (p, id, rel) => ipcRenderer.invoke(IPC.modsDelete, p, id, rel),
+    methods: (p, id, rel) => ipcRenderer.invoke(IPC.modsMethods, p, id, rel),
+    stub: (p, id, rel, sig, value) => ipcRenderer.invoke(IPC.modsStub, p, id, rel, sig, value),
+    stringLocales: (p, id) => ipcRenderer.invoke(IPC.modsStringLocales, p, id),
+    strings: (p, id, values) => ipcRenderer.invoke(IPC.modsStrings, p, id, values),
+    setString: (p, id, values, name, value) =>
+      ipcRenderer.invoke(IPC.modsSetString, p, id, values, name, value),
+    reveal: (p, id) => ipcRenderer.invoke(IPC.modsReveal, p, id)
+  },
   jobs: {
     list: () => ipcRenderer.invoke(IPC.jobsList),
     start: (kind, params) => ipcRenderer.invoke(IPC.jobsStart, kind, params),

@@ -12,7 +12,38 @@ import type {
   StockInfo
 } from './types'
 
+import type { ModSummary } from './appmod'
 import type { Recipe } from './recipe'
+
+export interface ModFile {
+  /** null when the file is binary or too large to edit as text. */
+  text: string | null
+  size: number
+  /** The stock decode's version, for diffs (null when the file was added). */
+  baseText: string | null
+}
+
+export interface SmaliMethodInfo {
+  sig: string
+  modifiers: string[]
+  returnType: string
+  line: number
+}
+
+export type StubValue = 'void' | 0 | 1 | 'null'
+
+export interface StringResInfo {
+  name: string
+  raw: string
+  value: string
+  attrs: string
+}
+
+export interface SearchHit {
+  path: string
+  line: number
+  text: string
+}
 
 export interface PatchSetInfo {
   id: string
@@ -40,6 +71,18 @@ export const IPC = {
   recipeSave: 'recipe:save',
   recipeCatalog: 'recipe:catalog',
   buildsReveal: 'builds:reveal',
+  modsList: 'mods:list',
+  modsListDir: 'mods:list-dir',
+  modsRead: 'mods:read',
+  modsWrite: 'mods:write',
+  modsRevert: 'mods:revert',
+  modsDelete: 'mods:delete',
+  modsMethods: 'mods:methods',
+  modsStub: 'mods:stub',
+  modsStringLocales: 'mods:string-locales',
+  modsStrings: 'mods:strings',
+  modsSetString: 'mods:set-string',
+  modsReveal: 'mods:reveal',
   jobsList: 'jobs:list',
   jobsStart: 'jobs:start',
   jobsCancel: 'jobs:cancel',
@@ -83,6 +126,29 @@ export interface HkApi {
   builds: {
     list(projectPath: string): Promise<BuildInfo[]>
     /** Show the build folder in the system file manager. */
+    reveal(projectPath: string, id: string): Promise<void>
+  }
+  mods: {
+    list(projectPath: string): Promise<ModSummary[]>
+    /** rel is relative to the mod's working copy; '' is its root. */
+    listDir(projectPath: string, id: string, rel: string): Promise<DirEntry[]>
+    read(projectPath: string, id: string, rel: string): Promise<ModFile>
+    write(projectPath: string, id: string, rel: string, text: string): Promise<void>
+    /** Back to the stock decode's content (an added file is deleted). */
+    revert(projectPath: string, id: string, rel: string): Promise<void>
+    remove(projectPath: string, id: string, rel: string): Promise<void>
+    methods(projectPath: string, id: string, rel: string): Promise<SmaliMethodInfo[]>
+    stub(projectPath: string, id: string, rel: string, sig: string, value: StubValue): Promise<void>
+    stringLocales(projectPath: string, id: string): Promise<string[]>
+    strings(projectPath: string, id: string, values: string): Promise<StringResInfo[]>
+    /** value null removes the string. */
+    setString(
+      projectPath: string,
+      id: string,
+      values: string,
+      name: string,
+      value: string | null
+    ): Promise<StringResInfo[]>
     reveal(projectPath: string, id: string): Promise<void>
   }
   jobs: {

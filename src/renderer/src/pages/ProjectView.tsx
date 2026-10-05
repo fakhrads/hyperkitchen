@@ -11,6 +11,7 @@ import type {
 } from '../../../shared/types'
 import { errorText, formatSize } from '../format'
 import { ProgressBar } from './Jobs'
+import { AppsTab } from './AppsTab'
 import { RecipeTab } from './RecipeTab'
 
 // Unpack or build jobs started from this window, by project path. Survives page switches.
@@ -18,7 +19,7 @@ const projectJobs = new Map<string, string>()
 
 const ROM_EXTENSIONS = ['tgz', 'gz', 'tar', 'zip', 'bin', 'img']
 
-type Tab = 'partitions' | 'files' | 'props' | 'apks' | 'recipe' | 'build'
+type Tab = 'partitions' | 'files' | 'props' | 'apks' | 'apps' | 'recipe' | 'build'
 
 export function ProjectView({
   project,
@@ -37,6 +38,7 @@ export function ProjectView({
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('partitions')
   const [pendingDebloat, setPendingDebloat] = useState<string[]>([])
+  const [pendingMod, setPendingMod] = useState<string | null>(null)
   const [jobId, setJobId] = useState<string | null>(projectJobs.get(project.path) ?? null)
   const job = jobs.find((j) => j.id === jobId) ?? null
   const running = job?.status === 'running'
@@ -202,6 +204,7 @@ export function ProjectView({
                 ['files', 'Files'],
                 ['props', 'build.prop'],
                 ['apks', 'APKs'],
+                ['apps', 'App editor'],
                 ['recipe', 'Recipe'],
                 ['build', 'Build']
               ] as const
@@ -226,6 +229,18 @@ export function ProjectView({
                 setPendingDebloat(pkgs)
                 setTab('recipe')
               }}
+              onEdit={(target) => {
+                setPendingMod(target)
+                setTab('apps')
+              }}
+            />
+          )}
+          {tab === 'apps' && (
+            <AppsTab
+              projectPath={project.path}
+              apks={inventory?.apks ?? []}
+              pendingTarget={pendingMod}
+              onTargetConsumed={() => setPendingMod(null)}
             />
           )}
           {tab === 'recipe' && (
@@ -429,10 +444,12 @@ const MAX_ROWS = 500
 
 function ApksTab({
   apks,
-  onDebloat
+  onDebloat,
+  onEdit
 }: {
   apks: ApkInfo[]
   onDebloat: (packages: string[]) => void
+  onEdit: (treePath: string) => void
 }): React.JSX.Element {
   const [filter, setFilter] = useState('')
   const [picked, setPicked] = useState<Set<string>>(new Set())
@@ -507,6 +524,7 @@ function ApksTab({
             <th>Path</th>
             <th>Signer (SHA-256)</th>
             <th>Size</th>
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -542,6 +560,11 @@ function ApksTab({
                 <div className="sub">{a.schemes.join(' ')}</div>
               </td>
               <td>{formatSize(a.size)}</td>
+              <td>
+                {a.size > 0 && !a.error && (
+                  <button onClick={() => onEdit(`${a.partition}/${a.path}`)}>Edit</button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
