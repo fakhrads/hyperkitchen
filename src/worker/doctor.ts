@@ -114,6 +114,23 @@ export async function supportsClone(dir: string): Promise<boolean> {
   }
 }
 
+/** False when "a" and "A" name the same file under dir (APFS default, exFAT, NTFS). */
+export async function caseSensitive(dir: string): Promise<boolean> {
+  const probeDir = join(dir, '.hk-case-probe')
+  await mkdir(probeDir, { recursive: true })
+  try {
+    await writeFile(join(probeDir, 'a'), '')
+    try {
+      await access(join(probeDir, 'A'))
+      return false
+    } catch {
+      return true
+    }
+  } finally {
+    await rm(probeDir, { recursive: true, force: true })
+  }
+}
+
 async function quarantined(dir: string): Promise<boolean> {
   // xattr -r -l prints one line per attribute; any com.apple.quarantine means Gatekeeper may block.
   try {
@@ -221,6 +238,16 @@ export async function runDoctor(ctx: JobContext): Promise<DoctorReport> {
       detail: clone
         ? 'supported: build copies are instant and use no extra space'
         : 'not supported on this filesystem: each build makes a full copy of the ROM tree (slower, more disk)'
+    })
+    const cs = await caseSensitive(env.projectsRoot)
+    checks.push({
+      id: 'host:case',
+      group: 'host',
+      label: 'Case-sensitive file names',
+      status: cs ? 'ok' : 'warn',
+      detail: cs
+        ? 'yes'
+        : 'no: Android trees can hold names that differ only in case, which would overwrite each other here. Use a case-sensitive volume (on macOS: APFS Case-sensitive, e.g. a disk image)'
     })
   } catch (e) {
     checks.push({

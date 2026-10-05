@@ -49,9 +49,88 @@ export interface ProjectSummary {
 
 export const PROJECT_SUBDIRS = ['source', 'stock', 'work', 'build', 'logs'] as const
 
+// ---------------------------------------------------------------- unpack (M2)
+
+export type InputKind = 'fastboot-tgz' | 'images-zip' | 'ota-zip' | 'payload' | 'folder' | 'image'
+
+export type ImageKind =
+  'sparse' | 'super' | 'erofs' | 'ext4' | 'boot' | 'vendor_boot' | 'vbmeta' | 'empty' | 'unknown'
+
+export interface SuperLayout {
+  /** Device-mapper metadata, as read from slot 0 of the stock super image. */
+  metadataMaxSize: number
+  metadataSlotCount: number
+  logicalBlockSize: number
+  version: string
+  virtualAb: boolean
+  blockDevices: Array<{ name: string; size: number; alignment: number; firstLogicalSector: number }>
+  groups: Array<{ name: string; maximumSize: number }>
+  partitions: Array<{ name: string; group: string; attributes: number; size: number }>
+}
+
+export interface PartitionInfo {
+  /** Name used for the image file and the extracted tree, without slot suffix. */
+  name: string
+  /** Name inside super, with slot suffix; null for partitions not in super. */
+  lpName: string | null
+  size: number
+  kind: ImageKind
+  extracted: boolean
+  note: string | null
+}
+
+export interface PropFile {
+  partition: string
+  /** Path relative to the partition root. */
+  path: string
+  props: Record<string, string>
+}
+
+export interface StockInfo {
+  schema: 1
+  unpackedAt: string
+  input: { path: string; kind: InputKind; sha256: string | null }
+  device: string | null
+  romVersion: string | null
+  super: SuperLayout | null
+  partitions: PartitionInfo[]
+  props: PropFile[]
+  /** Files kept beside the partitions for the flashable output (firmware, scripts). */
+  firmware: string[]
+}
+
+export interface ApkInfo {
+  partition: string
+  /** Path relative to the partition root, e.g. priv-app/Settings/Settings.apk. */
+  path: string
+  size: number
+  packageName: string | null
+  versionCode: number | null
+  versionName: string | null
+  sharedUserId: string | null
+  usesLibraries: string[]
+  overlayTarget: string | null
+  signerSha256: string | null
+  schemes: string[]
+  error: string | null
+}
+
+export interface Inventory {
+  schema: 1
+  apks: ApkInfo[]
+}
+
+export interface DirEntry {
+  name: string
+  type: 'dir' | 'file' | 'symlink' | 'other'
+  size: number
+  /** Symlink target, when type is symlink. */
+  target?: string
+}
+
 // ---------------------------------------------------------------- jobs
 
-export type JobKind = 'selftest' | 'doctor' | 'java-install' | 'clear-quarantine'
+export type JobKind = 'selftest' | 'doctor' | 'java-install' | 'clear-quarantine' | 'unpack'
 
 export type JobStatus = 'running' | 'done' | 'failed' | 'cancelled'
 

@@ -15,13 +15,19 @@ const api: HkApi = {
     update: (patch) => ipcRenderer.invoke(IPC.settingsUpdate, patch)
   },
   dialog: {
-    pickDir: (title) => ipcRenderer.invoke(IPC.dialogPickDir, title)
+    pickDir: (title) => ipcRenderer.invoke(IPC.dialogPickDir, title),
+    pickFile: (title, extensions) => ipcRenderer.invoke(IPC.dialogPickFile, title, extensions)
   },
   projects: {
     list: () => ipcRenderer.invoke(IPC.projectsList),
     create: (name) => ipcRenderer.invoke(IPC.projectsCreate, name),
     open: (path) => ipcRenderer.invoke(IPC.projectsOpen, path),
     forget: (path) => ipcRenderer.invoke(IPC.projectsForget, path)
+  },
+  stock: {
+    info: (p) => ipcRenderer.invoke(IPC.stockInfo, p),
+    inventory: (p) => ipcRenderer.invoke(IPC.stockInventory, p),
+    listDir: (p, rel) => ipcRenderer.invoke(IPC.stockListDir, p, rel)
   },
   jobs: {
     list: () => ipcRenderer.invoke(IPC.jobsList),

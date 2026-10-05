@@ -3,6 +3,7 @@ import { type JobHandler, sleep } from './context'
 import { clearQuarantine, runDoctor } from './doctor'
 import { installManagedJre } from './java'
 import { run } from './spawn'
+import { unpack } from './unpack'
 
 /**
  * Self-test: exercises progress, logging, a real child process and cancel.
@@ -28,5 +29,12 @@ export const handlers: Record<JobKind, JobHandler> = {
   selftest,
   doctor: (ctx) => runDoctor(ctx),
   'java-install': (ctx) => installManagedJre(ctx),
-  'clear-quarantine': (ctx) => clearQuarantine(ctx)
+  'clear-quarantine': (ctx) => clearQuarantine(ctx),
+  // Params are validated in main (UnpackParamsSchema) before the job starts.
+  unpack: (ctx, params) =>
+    unpack(ctx, {
+      projectPath: String(params.projectPath),
+      input: String(params.input),
+      reset: params.reset === true
+    })
 }

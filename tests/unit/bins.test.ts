@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { platformKey } from '../../src/shared/platform'
 import { SUPPORTED_PLATFORMS, type BinManifest } from '../../src/shared/types'
 import {
+  caseSensitive,
   matchProbe,
   parseDfMountPoint,
   parseMountType,
@@ -84,6 +85,16 @@ describe('clone detection', () => {
     expect(parseMountType(mount, '/')).toBe('apfs')
     expect(parseMountType(mount, '/Volumes/USB')).toBe('msdos')
     expect(parseMountType(mount, '/nope')).toBeNull()
+  })
+
+  it('detects case sensitivity of a folder', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'hk-case-'))
+    try {
+      // Default macOS APFS is case-insensitive; Linux ext4/btrfs/xfs are case-sensitive.
+      expect(await caseSensitive(tmp)).toBe(process.platform !== 'darwin')
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
   })
 
   it.runIf(process.platform === 'darwin')('reports APFS as clone capable on macOS', async () => {

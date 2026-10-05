@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { ProjectSummary } from '../../../shared/types'
+import type { JobState, ProjectSummary } from '../../../shared/types'
+import { ProjectView } from './ProjectView'
 
-export function ProjectsPage(): React.JSX.Element {
+export function ProjectsPage({ jobs }: { jobs: JobState[] }): React.JSX.Element {
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -80,13 +81,12 @@ export function ProjectsPage(): React.JSX.Element {
       </div>
 
       {current && (
-        <div className="panel" data-testid="project-current">
-          <strong>{current.meta.name}</strong>
-          <div className="mono">{current.path}</div>
-          <p className="sub" style={{ margin: '8px 0 0' }}>
-            Opened. Loading a ROM into the project arrives in M2 (unpack).
-          </p>
-        </div>
+        <ProjectView
+          key={current.path}
+          project={current}
+          jobs={jobs}
+          onChanged={() => void refresh()}
+        />
       )}
 
       <h2>Recent</h2>

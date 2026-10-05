@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import type { Readable } from 'node:stream'
 import { CancelledError } from './context'
 
 export interface RunOptions {
@@ -11,6 +12,8 @@ export interface RunOptions {
   timeoutMs?: number
   /** Keep at most this many bytes of combined output in the result. */
   maxCapture?: number
+  /** Piped into the child's stdin, e.g. an archive read with progress and hashing. */
+  stdin?: Readable
 }
 
 export interface RunResult {
@@ -41,7 +44,7 @@ export function run(cmd: string, args: string[], opts: RunOptions = {}): Promise
       child = spawn(cmd, args, {
         cwd: opts.cwd,
         env: opts.env ?? process.env,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: [opts.stdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
         detached: process.platform !== 'win32'
       })
     } catch (e) {
@@ -90,6 +93,12 @@ export function run(cmd: string, args: string[], opts: RunOptions = {}): Promise
       const lines = (partial[stream] + text).split(/\r?\n|\r/)
       partial[stream] = lines.pop() ?? ''
       for (const l of lines) if (l.length) opts.onLine(l, stream)
+    }
+    if (opts.stdin && child.stdin) {
+      // The child may exit early (error or cancel); its close handler reports that.
+      child.stdin.on('error', () => {})
+      opts.stdin.on('error', () => killTree())
+      opts.stdin.pipe(child.stdin)
     }
     child.stdout.on('data', (c: Buffer) => feed('stdout', c))
     child.stderr.on('data', (c: Buffer) => feed('stderr', c))

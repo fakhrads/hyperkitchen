@@ -11,6 +11,8 @@ import {
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { platformKey } from '../../src/shared/platform'
+import { buildFastbootRom } from '../fixtures/rom'
 
 const root = resolve(__dirname, '../..')
 let app: ElectronApplication
@@ -86,5 +88,43 @@ test('job runner reports progress, completes and cancels', async () => {
   await page.getByTestId('selftest-start').click()
   await expect(page.getByTestId('job-selftest').first()).toHaveAttribute('data-status', 'done', {
     timeout: 20_000
+  })
+})
+
+test('unpacks a ROM folder and shows partitions, files, props and APKs', async () => {
+  const binDir = join(root, 'resources/bin', platformKey(process.platform, process.arch) as string)
+  const rom = await buildFastbootRom(join(tmp, 'fixture'), binDir)
+  // Answer the next native folder dialog with the fixture ROM.
+  await app.evaluate(({ dialog }, dir) => {
+    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [dir] })) as never
+  }, rom)
+
+  await page.getByTestId('nav-projects').click()
+  await page.getByTestId('project-name').fill('onyx unpack')
+  await page.getByTestId('project-create').click()
+  await page.getByRole('button', { name: 'Choose folder…' }).click()
+  await expect(page.getByTestId('unpack-input')).toHaveText(rom)
+  await page.getByTestId('unpack-start').click()
+
+  await expect(page.getByTestId('stock-device')).toHaveText('testdev', { timeout: 60_000 })
+  await expect(page.getByTestId('stock-version')).toHaveText('TEST.1.0')
+  await expect(page.getByTestId('partition-system')).toContainText('system_a')
+  await expect(page.getByTestId('partition-vendor')).toContainText('erofs')
+
+  await page.getByTestId('tab-files').click()
+  await page.getByTestId('node-vendor').click()
+  await page.getByTestId('node-vendor/etc').click()
+  await expect(page.getByTestId('node-vendor/etc/fixture.txt')).toBeVisible()
+
+  await page.getByTestId('tab-props').click()
+  await page.getByTestId('props-filter').fill('incremental')
+  await expect(page.getByTestId('props-table')).toContainText('TEST.1.0')
+
+  await page.getByTestId('tab-apks').click()
+  await expect(page.getByTestId('apks-table')).toContainText('com.example.test')
+  await expect(page.getByTestId('apks-count')).toHaveText('1 of 1 APKs')
+  await page.screenshot({
+    path: join(root, 'test-results', `unpack-${process.platform}-${process.arch}.png`),
+    fullPage: true
   })
 })

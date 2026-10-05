@@ -6,9 +6,10 @@ notifications, patch the framework, rebrand and repack into a flashable ROM.
 The reference target is the POCO F7 (`onyx`), but device info is always read
 from the ROM itself.
 
-> Status: **M1 (foundation)**. The app shell, job runner, binaries manager and
-> doctor work. Unpacking and building ROMs arrive in M2 and M3. See
-> [`PLAN.md`](PLAN.md) for the full roadmap and research notes.
+> Status: **M2 (unpack)**. The app shell, job runner, binaries manager and
+> doctor work, and a stock ROM can be unpacked and inspected. Repacking into a
+> flashable ROM arrives in M3. See [`PLAN.md`](PLAN.md) for the full roadmap and
+> research notes.
 
 ## Supported hosts
 
@@ -41,6 +42,9 @@ pnpm typecheck && pnpm lint
 pnpm test                  # unit tests (probes real binaries once fetched)
 pnpm build && pnpm test:e2e        # smoke test of the real app (use xvfb-run on headless Linux)
 HK_NET_TESTS=1 pnpm test   # also runs the network test that installs a real JRE
+# unpack a real ROM into <projects>/<name> (never part of pnpm test):
+HK_ROM_INPUT=<rom.tgz|zip|folder> HK_PROJECTS=<dir> HK_PROJECT=<name> \
+  npx vitest run --config tests/local/vitest.config.ts
 ```
 
 ### Building installers
@@ -69,6 +73,19 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
 - **Projects**: a folder with `project.json`, `recipe.json` and `source/`,
   `stock/`, `work/`, `build/`, `logs/`. A build always starts from a fresh copy
   of `stock/`; the original ROM is never modified.
+- **Unpack**: accepts a fastboot `.tgz`, an images zip, an OTA zip or
+  `payload.bin`, an extracted folder, or a single `super.img`. Sparse images
+  (including split `super.img.0..N`) and the logical partition metadata of
+  `super` are read in TypeScript, since `simg2img` and `lpunpack` have no macOS
+  builds. Partitions are written to `stock/images/`, erofs trees with their
+  `fs_config` and `file_contexts` to `stock/fs/`, and the super layout, every
+  `build.prop` and an APK inventory (package, version, signer SHA-256, read
+  without Java) to `stock/stock.json` and `stock/inventory.json`.
+
+Put the projects folder on a **case-sensitive** filesystem: Android trees can
+hold names that differ only in case. On macOS, an APFS (Case-sensitive) volume
+or disk image works; exFAT is not suitable (case-insensitive, no hard links,
+`._*` metadata files).
 
 ## Scope and legal
 

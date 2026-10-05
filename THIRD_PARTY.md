@@ -43,12 +43,27 @@ are in that repository under `bin/licenses/`.
 
 | Project | License | How it is used |
 |---|---|---|
-| MIO-KITCHEN-SOURCE | AGPL-3.0 | Binaries above; repack command lines; lpunpack and ext4 extraction logic will be ported in later milestones |
+| MIO-KITCHEN-SOURCE | AGPL-3.0 | Binaries above; repack command lines; ext4 extraction logic may be ported later |
 | FrameworkPatcher (FrameworksForge) | AGPL-3.0 | Framework smali patch definitions will be ported (M8) |
 | HyperOS-Port-Python (toraidl) | Unlicense | Reference for flash scripts and data-driven device config |
 | UY-Scuti | see repository | Reference for Joyose and PowerKeeper patches |
 | unlock-cn-gms (MWTJC / fei-ke) | see repository | Reference for the `cn.google.services` permission edits |
 | hyperos-fcm-fix (dingwen07) | GPL-3.0 | Reference for the Greezer / MILLET_NO_RESTRICT_APP investigation |
+
+## Format specifications implemented
+
+These readers in `src/worker/formats/` were written from the format definitions
+below. No code was copied.
+
+| Format | Specification |
+|---|---|
+| Android sparse image | AOSP `system/core/libsparse/sparse_format.h` (Apache-2.0) |
+| Logical partitions (super) | AOSP `system/core/fs_mgr/liblp/include/liblp/metadata_format.h`, offsets from `liblp/utility.cpp` (Apache-2.0) |
+| Binary XML (AndroidManifest.xml) | AOSP `frameworks/base/libs/androidfw/include/androidfw/ResourceTypes.h` and `ResourceTypes.cpp` (Apache-2.0) |
+| APK Signing Block (v2, v3, v3.1) | AOSP `tools/apksig` (Apache-2.0) |
+| PKCS#7 SignedData (v1 signatures) | RFC 5652 |
+| ZIP | PKWARE APPNOTE.TXT |
+| erofs and ext4 superblock magic | erofs-utils `include/erofs_fs.h`, Linux `fs/ext4/ext4.h` |
 
 ## npm dependencies
 

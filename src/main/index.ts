@@ -11,6 +11,7 @@ import { JobManager, type WorkerLike } from './jobs'
 import { binDir, commonBinDir, currentPlatformKey, managedJreDir, manifestPath } from './paths'
 import { createProject, listProjects, openProject } from './projects'
 import { SettingsPatchSchema, SettingsStore } from './settings'
+import { checkUnpackParams, listStockDir, readInventory, readStock } from './stock'
 
 // Test hooks: isolate user data and the default projects folder.
 if (process.env.HK_USER_DATA) app.setPath('userData', process.env.HK_USER_DATA)
@@ -77,7 +78,7 @@ async function rememberProject(path: string): Promise<void> {
 }
 
 const JobStartSchema = z.object({
-  kind: z.enum(['selftest', 'doctor', 'java-install', 'clear-quarantine']),
+  kind: z.enum(['selftest', 'doctor', 'java-install', 'clear-quarantine', 'unpack']),
   params: z.record(z.string(), z.unknown()).default({})
 })
 
@@ -110,6 +111,20 @@ function registerIpc(): void {
       : await dialog.showOpenDialog({ ...opts, properties: [...opts.properties] })
     return r.canceled ? null : (r.filePaths[0] ?? null)
   })
+  ipcMain.handle(IPC.dialogPickFile, async (_e, title: unknown, extensions: unknown) => {
+    const opts = {
+      title: String(title ?? 'Choose file'),
+      properties: ['openFile' as const],
+      filters: [
+        { name: 'ROM', extensions: z.array(z.string().regex(/^[a-z0-9]+$/)).parse(extensions) },
+        { name: 'All files', extensions: ['*'] }
+      ]
+    }
+    const r = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, opts)
+      : await dialog.showOpenDialog(opts)
+    return r.canceled ? null : (r.filePaths[0] ?? null)
+  })
 
   ipcMain.handle(IPC.projectsList, async () => listProjects((await settings.get()).recentProjects))
   ipcMain.handle(IPC.projectsCreate, async (_e, name: unknown) => {
@@ -129,9 +144,21 @@ function registerIpc(): void {
     await settings.update({ recentProjects: s.recentProjects.filter((p) => p !== target) })
   })
 
+  ipcMain.handle(IPC.stockInfo, (_e, p: unknown) => readStock(z.string().min(1).parse(p)))
+  ipcMain.handle(IPC.stockInventory, (_e, p: unknown) => readInventory(z.string().min(1).parse(p)))
+  ipcMain.handle(IPC.stockListDir, (_e, p: unknown, rel: unknown) =>
+    listStockDir(z.string().min(1).parse(p), z.string().parse(rel))
+  )
+
   ipcMain.handle(IPC.jobsList, () => jobs.list())
-  ipcMain.handle(IPC.jobsStart, (_e, kind: unknown, params: unknown) => {
+  ipcMain.handle(IPC.jobsStart, async (_e, kind: unknown, params: unknown) => {
     const parsed = JobStartSchema.parse({ kind, params: params ?? {} })
+    if (parsed.kind === 'unpack') {
+      if (jobs.list().some((j) => j.kind === 'unpack' && j.status === 'running')) {
+        throw new Error('an unpack is already running')
+      }
+      return jobs.start('unpack', await checkUnpackParams(parsed.params))
+    }
     return jobs.start(parsed.kind, parsed.params)
   })
   ipcMain.handle(IPC.jobsCancel, (_e, id: unknown) => jobs.cancel(z.string().parse(id)))

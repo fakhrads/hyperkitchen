@@ -1,11 +1,14 @@
 import type {
   AppInfo,
+  DirEntry,
   DoctorReport,
+  Inventory,
   JobKind,
   JobLogLine,
   JobState,
   ProjectSummary,
-  Settings
+  Settings,
+  StockInfo
 } from './types'
 
 /** Channel names. One place so main and preload cannot drift apart. */
@@ -14,10 +17,14 @@ export const IPC = {
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
   dialogPickDir: 'dialog:pick-dir',
+  dialogPickFile: 'dialog:pick-file',
   projectsList: 'projects:list',
   projectsCreate: 'projects:create',
   projectsOpen: 'projects:open',
   projectsForget: 'projects:forget',
+  stockInfo: 'stock:info',
+  stockInventory: 'stock:inventory',
+  stockListDir: 'stock:list-dir',
   jobsList: 'jobs:list',
   jobsStart: 'jobs:start',
   jobsCancel: 'jobs:cancel',
@@ -37,12 +44,20 @@ export interface HkApi {
   }
   dialog: {
     pickDir(title: string): Promise<string | null>
+    /** extensions without dots, e.g. ['tgz', 'zip']. */
+    pickFile(title: string, extensions: string[]): Promise<string | null>
   }
   projects: {
     list(): Promise<ProjectSummary[]>
     create(name: string): Promise<ProjectSummary>
     open(path: string): Promise<ProjectSummary>
     forget(path: string): Promise<void>
+  }
+  stock: {
+    info(projectPath: string): Promise<StockInfo | null>
+    inventory(projectPath: string): Promise<Inventory | null>
+    /** rel is relative to stock/fs, e.g. "system/system/priv-app". */
+    listDir(projectPath: string, rel: string): Promise<DirEntry[]>
   }
   jobs: {
     list(): Promise<JobState[]>

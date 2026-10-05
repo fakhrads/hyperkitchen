@@ -53,7 +53,7 @@ export default function App(): React.JSX.Element {
         </div>
       </aside>
       <main className="main">
-        {page === 'projects' && <ProjectsPage />}
+        {page === 'projects' && <ProjectsPage jobs={jobs} />}
         {page === 'doctor' && <DoctorPage jobs={jobs} />}
         {page === 'jobs' && <JobsPage jobs={jobs} />}
         {page === 'settings' && <SettingsPage info={info} />}

@@ -1,6 +1,6 @@
 # HyperKitchen: PLAN
 
-Status: M1 selesai (Linux x64 dan macOS arm64). Riset dilakukan 2026-10-04 terhadap clone shallow semua repo di bawah.
+Status: M1 selesai (Linux x64 dan macOS arm64), M2 selesai (macOS arm64; Linux x64 belum dijalankan). Riset dilakukan 2026-10-04 terhadap clone shallow semua repo di bawah.
 
 ## 1. Hasil riset
 
@@ -111,8 +111,14 @@ Electron 44 + electron-vite 5 + electron-builder 26, TypeScript strict, React 19
 <projects-root>/<nama>/
   project.json        metadata: device, versi ROM, fingerprint, hash sumber
   recipe.json         daftar operasi berurutan (data murni)
-  source/             input asli, read-only (atau hanya referensi path + hash)
-  stock/              image partisi hasil ekstrak + config/ (fs_config, file_contexts). Read-only setelah ekstrak.
+  source/             tempat ekstrak sementara untuk input arsip (tgz/zip); dikosongkan setelah unpack selesai.
+                      Input asli hanya dicatat (path + sha256) dan tidak pernah diubah.
+  stock/              hasil unpack (M2), read-only setelah ekstrak:
+    images/<part>.img   image partisi raw (super dipecah per partisi logical, suffix slot dibuang)
+    fs/<part>/          pohon erofs; fs/config/<part>_fs_config, _file_contexts, _fs_options
+    firmware/           firmware + skrip flash dari paket asli, untuk output flashable (M3)
+    stock.json          input, layout super (dari metadata stock), partisi, semua build.prop
+    inventory.json      semua APK: package, versionCode/Name, signer SHA-256, skema signature
   work/               salinan pohon file tempat recipe dijalankan. Dibuang dan dibuat ulang tiap build.
   build/<timestamp>/  output, build.log, checksums.sha256, recipe snapshot
 ```
@@ -142,7 +148,18 @@ Setiap milestone selesai bila: jalan di Linux x64 dan macOS arm64 (lokal, atau C
 - [x] **M1 Foundation**: scaffold (perintah diverifikasi dari docs electron-vite), IPC + job runner utilityProcess dengan progres dan cancel, binaries manager + `fetch-bins` + Doctor, create/open project, settings. Paket `.AppImage` dan `.app`/`.dmg` (ad-hoc signed, tanpa notarisasi) yang bisa dibuka. CI GitHub Actions.
   - Status 2026-10-04: selesai dan terverifikasi di Linux x64 (unit test, smoke test dev + AppImage hasil paket, install JRE terkelola).
   - Status 2026-10-05: terverifikasi di macOS 27.0.1 arm64 (lokal): typecheck, lint, unit test, install JRE terkelola (layout `Contents/Home`), smoke test dev build dan `.app` hasil paket. Semua binary darwin-arm64 dieksekusi langsung (ad-hoc signed). `xattr -r -l` / `xattr -r -d com.apple.quarantine` diuji nyata: binary ber-quarantine di-SIGKILL, setelah atribut dihapus jalan normal. Perbaikan: deteksi clone di macOS (lihat 2.4) kini membaca tipe filesystem lewat `df -P` + `mount`; paket mac kini ad-hoc signed (`identity: '-'`, `hardenedRuntime: false`, keduanya dari schema electron-builder 26.15.3) karena `identity: null` meninggalkan signature yang tidak valid sehingga salinan unduhan dianggap "rusak". Build x64 dipaket dan lolos `codesign --verify`, belum dijalankan (tidak ada Rosetta).
-- [ ] **M2 Unpack**: input OTA zip / payload.bin / fastboot tgz / super.img / folder. lpunpack + simg2img di TS, erofs extract dengan config. UI: pohon partisi, build.prop per partisi, inventaris APK (package, versionCode, signer SHA-256). Minta `romdiff.zip` darimu di awal M2.
+- [x] **M2 Unpack**: input OTA zip / payload.bin / fastboot tgz / super.img / folder. lpunpack + simg2img di TS, erofs extract dengan config. UI: pohon partisi, build.prop per partisi, inventaris APK (package, versionCode, signer SHA-256). `romdiff.zip` belum ada; inventaris APK ditulis sendiri.
+  - Status 2026-10-05: selesai dan terverifikasi di macOS arm64 (unit test, smoke test dev build dan `.app` hasil paket, plus dua ROM onyx asli di disk lokal). Linux x64 **belum dijalankan** di sesi ini (tidak ada host Linux); jalur khusus Linux hanya `cloneOrCopy` (FICLONE) dan GNU tar/unzip.
+  - ROM uji: stock `onyx_images_OS3.0.305.0.WOLCNXM_..._cn` (fastboot tgz 10 GB) selesai dalam 238 detik: 8 partisi erofs, 421 APK. PureCN `simple_ota` (images zip 7,2 GB, zip64, super dipecah 11 bagian) selesai dalam 240 detik: 8 partisi, 390 APK.
+  - Verifikasi silang: sparse dan liblp dicek terhadap output `img2simg` dan `lpmake` asli (unit test); signer 14/14 APK sampel cocok dengan `keytool -printcert -jarfile` (v1) dan APKEditor `-signatures` (v2/v3-only); package, versionCode, versionName 14/14 cocok dengan APKEditor `info`.
+  - Temuan untuk M3:
+    - Stock super: metadata v10.2, flag Virtual A/B, 3 slot, `metadata_max_size` 65536, block device `super` 11811160064 byte, alignment 1 MiB, grup `qti_dynamic_partitions_a/_b` max 11800674304. Hanya slot `_a` terisi. Tersimpan di `stock/stock.json` untuk lpmake.
+    - Super PureCN memakai metadata v10.0 **tanpa** flag Virtual A/B, jadi mereka membangun ulang super tanpa `--virtual-ab`. Kita tetap mengikuti stock kecuali ada alasan terverifikasi.
+    - `extract.erofs` menamai mount point dan file config dari nama file image, jadi image ditulis tanpa suffix slot (`system.img`, bukan `system_a.img`). File `config/<part>_fs_options` mencatat opsi `mkfs.erofs` asli (contoh mi_ext: `-zlz4hc -T 0 -U <uuid>`), untuk dipakai saat repack.
+    - Partisi vendor/odm berbasis Android 15 (`AQ3A`), system/product Android 16 (`BP2A`). Device asli (`onyx`) hanya ada di `misc.txt`, odm, `*_dlkm`; vendor memakai `mivendor`, product `miproduct`, system `generic`.
+    - Xiaomi menyertakan APK placeholder 0 byte (`mi_ext/product/app/messaging/messaging.apk`).
+  - Split super dari PureCN: tiap bagian `super.img.N` punya `total_blks` berbeda (bagian N menutup `[0, akhir datanya)`), bukan pola split standar dengan ukuran sama. Reader menangani keduanya dan menolak extent di luar cakupan image.
+  - Folder project harus case-sensitive (Doctor kini mengecek). exFAT tidak cocok; di Mac ini dipakai sparse bundle APFS (Case-sensitive) di disk eksternal.
 - [ ] **M3 Repack + output flashable** (paling berisiko): rebuild erofs/ext4 dengan fs_config + file_contexts asli, lpmake dengan geometri super dari metadata stock (bukan tebakan), vbmeta flags disable (dengan peringatan jelas). Output pertama: **paket fastboot** (images + `flash.sh` untuk mac/linux yang kamu jalankan sendiri, tool tidak pernah memanggil fastboot). Recovery zip menyusul. **Gerbang wajib:** unpack lalu repack tanpa perubahan, bandingkan isi file per file (bukan byte image), lalu kamu uji boot di onyx sebelum ada edit apa pun. Regenerasi payload.bin OTA ditunda (butuh `delta_generator`, hanya ada versi Linux).
 - [ ] **M4 Debloat + props**: hapus app per package/path, peringatan dependensi (shared lib, `uses-library`, priv-app permission xml, overlay target), editor build.prop lintas partisi, kontrol region/locale, diff view.
 - [ ] **M5 GApps**: baca layout zip MindTheGapps 16 asli (511 MB, diunduh saat M5) sebelum menulis path apa pun. Inject ke `product` (atau `system_ext`) beserta permission + sysconfig xml, hapus flag `cn.google.services`/`services_updater`, dedupe dengan "Basic Google Services" bawaan CN ROM.

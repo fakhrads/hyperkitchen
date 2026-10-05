@@ -167,6 +167,15 @@ input[type='text'] {
   min-width: 280px;
 }
 
+select {
+  font: inherit;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
