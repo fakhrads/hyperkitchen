@@ -32,7 +32,8 @@ const api: HkApi = {
   recipe: {
     get: (p) => ipcRenderer.invoke(IPC.recipeGet, p),
     save: (p, r) => ipcRenderer.invoke(IPC.recipeSave, p, r),
-    catalog: () => ipcRenderer.invoke(IPC.recipeCatalog)
+    catalog: () => ipcRenderer.invoke(IPC.recipeCatalog),
+    inspectGapps: (z) => ipcRenderer.invoke(IPC.gappsInspect, z)
   },
   builds: {
     list: (p) => ipcRenderer.invoke(IPC.buildsList, p),

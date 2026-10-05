@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { PatchSetInfo } from '../../../shared/ipc'
-import { purecnImportOps, purecnPreset, type ImportGroup } from '../../../shared/presets'
+import type { GappsZipInfo, PatchSetInfo } from '../../../shared/ipc'
+import {
+  mindTheGappsOps,
+  purecnImportOps,
+  purecnPreset,
+  type ImportGroup
+} from '../../../shared/presets'
 import type { Operation, Recipe } from '../../../shared/recipe'
 import type { StockInfo } from '../../../shared/types'
-import { errorText } from '../format'
+import { errorText, formatSize } from '../format'
 
 const USER_DEBLOAT = 'user-debloat'
 const USER_PROPS = 'user-props'
@@ -286,6 +291,13 @@ export function RecipeTab({
         )}
       </div>
 
+      <h2>GApps from MindTheGapps</h2>
+      <MindTheGapps
+        current={recipe.operations.find((o) => o.type === 'gapps') ?? null}
+        onApply={(add) => set([...ops.filter((o) => !add.some((a) => a.id === o.id)), ...add])}
+        onRemove={() => set(recipe.operations.filter((o) => o.type !== 'gapps'))}
+      />
+
       <h2>Debloat</h2>
       <div className="panel">
         <p className="sub" style={{ margin: '0 0 6px' }}>
@@ -431,5 +443,105 @@ export function RecipeTab({
         </tbody>
       </table>
     </>
+  )
+}
+
+const GAPPS_DEFAULT_EXCLUDE = ['VelvetTitan', 'SetupWizard', 'GmsSetupWizardOverlay.apk']
+const GAPPS_NOTES: Record<string, string> = {
+  VelvetTitan: 'Google app for the Pixel Tablet only',
+  SetupWizard: 'MindTheGapps deletes Provision for it; HyperOS needs Provision',
+  'GmsSetupWizardOverlay.apk': 'targets the LineageOS setup wizard, absent in HyperOS'
+}
+
+function MindTheGapps({
+  current,
+  onApply,
+  onRemove
+}: {
+  current: Operation | null
+  onApply: (ops: Operation[]) => void
+  onRemove: () => void
+}): React.JSX.Element {
+  const [info, setInfo] = useState<GappsZipInfo | null>(null)
+  const [exclude, setExclude] = useState<string[]>(GAPPS_DEFAULT_EXCLUDE)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const pick = async (): Promise<void> => {
+    const z = await window.hk.dialog.pickFile('Choose a MindTheGapps zip', ['zip'])
+    if (!z) return
+    setBusy(true)
+    setError(null)
+    try {
+      setInfo(await window.hk.recipe.inspectGapps(z))
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="panel" data-testid="gapps-panel">
+      <p className="sub" style={{ margin: '0 0 8px' }}>
+        Download the MindTheGapps zip for this ROM&apos;s Android version yourself
+        (github.com/MindTheGapps); HyperKitchen does not download it. Apps the ROM already has with
+        the same signer and an equal or newer version (GmsCore, GSF on CN bases) stay; the CN Play
+        Store stub is replaced by Play Store, which needs a data format on first install. The build
+        stops if a privileged permission is missing from the allowlists, because the phone would not
+        boot.
+      </p>
+      {current?.type === 'gapps' && (
+        <p className="mono" data-testid="gapps-current">
+          In the recipe: {current.params.zip}
+          {current.params.sha256 ? ` (sha256 ${current.params.sha256.slice(0, 16)}…)` : ''},
+          excluded: {current.params.exclude.join(', ') || 'none'}{' '}
+          <button onClick={onRemove}>Remove</button>
+        </p>
+      )}
+      <div className="row">
+        <button disabled={busy} onClick={() => void pick()} data-testid="gapps-pick">
+          {busy ? 'Reading…' : 'Choose zip…'}
+        </button>
+        {error && <span className="error-text">{error}</span>}
+      </div>
+      {info && (
+        <>
+          <p className="mono" style={{ margin: '8px 0' }}>
+            {info.path}: Android SDK {info.version}, {info.arch}, sha256 {info.sha256}
+          </p>
+          <table>
+            <tbody>
+              {info.units.map((u) => (
+                <tr key={u.tree}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={!exclude.includes(u.name)}
+                      onChange={(e) =>
+                        setExclude(
+                          e.target.checked
+                            ? exclude.filter((x) => x !== u.name)
+                            : [...exclude, u.name]
+                        )
+                      }
+                    />
+                  </td>
+                  <td className="mono">{u.tree}</td>
+                  <td>{formatSize(u.bytes)}</td>
+                  <td className="sub">{GAPPS_NOTES[u.name] ?? ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button
+            className="primary"
+            style={{ marginTop: 8 }}
+            onClick={() => onApply(mindTheGappsOps(info.path, info.sha256, exclude))}
+            data-testid="gapps-apply"
+          >
+            Use this zip
+          </button>
+        </>
+      )}
+    </div>
   )
 }

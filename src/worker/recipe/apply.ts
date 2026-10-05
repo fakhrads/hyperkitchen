@@ -1,5 +1,6 @@
 // Runs a recipe against work/fs. Order: file operations in recipe order, then smali patches
-// grouped per target file (one decode/rebuild per jar or APK), then app mods, then GApps. Config files are
+// grouped per target file (one decode/rebuild per jar or APK), then app mods. GApps is a
+// file operation (recipe/gapps.ts). Config files are
 // saved at the end so the rebuilt images carry metadata for exactly the files present.
 
 import { readFile, rm } from 'node:fs/promises'
@@ -8,10 +9,19 @@ import type { Operation, OperationReport, Recipe } from '../../shared/recipe'
 import type { ApkInfo } from '../../shared/types'
 import { throwIfCancelled } from '../context'
 import { buildMod, readMod } from '../appmod/mod'
-import { FILE_OPS, newReport, type OpContext } from './ops'
+import { applyGapps } from './gapps'
+import { FILE_OPS, newReport, type OpContext, type OpRunner } from './ops'
 import { patchSet } from './patchsets'
 import { artifactsOf, patchTarget, type PatchEnv } from './patcher'
 import { WorkTree } from './tree'
+
+FILE_OPS.gapps = ((ctx, op, r) =>
+  applyGapps(
+    ctx,
+    op as Extract<Operation, { type: 'gapps' }>,
+    r,
+    join(ctx.tmp as string, 'gapps')
+  )) as OpRunner
 
 export interface ApplyEnv {
   /** The project (app mods live in <project>/mods). */
@@ -34,15 +44,19 @@ export async function applyRecipe(recipe: Recipe, env: ApplyEnv): Promise<Operat
   const reports: OperationReport[] = []
   if (!ops.length) return reports
   const tree = await WorkTree.open(env.workFs, env.partitions)
-  const ctx: OpContext = { tree, apks: env.apks, log: env.log, stockVersion: env.stockVersion }
+  const ctx: OpContext = {
+    tree,
+    apks: env.apks,
+    log: env.log,
+    stockVersion: env.stockVersion,
+    tmp: join(env.tmp, 'ops')
+  }
 
   const fileOps = ops.filter((o) => FILE_OPS[o.type])
   const patchOps = ops.filter((o): o is Extract<Operation, { type: 'patch' }> => o.type === 'patch')
   const modOps = ops.filter(
     (o): o is Extract<Operation, { type: 'app-mod' }> => o.type === 'app-mod'
   )
-  const gappsOps = ops.filter((o) => o.type === 'gapps')
-  if (gappsOps.length) throw new Error('the gapps operation is not available yet')
   const total = fileOps.length + patchOps.length + modOps.length || 1
   let done = 0
 

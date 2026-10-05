@@ -106,6 +106,12 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   patch sets (notifications, Greezer, PowerKeeper, Joyose), with a PureCN
   preset. Smali patches keep the original APK signature blocks; Android does
   not verify APKs on system partitions, so the apps keep their identity.
+- **GApps**: a MindTheGapps zip you download is added to `product` and
+  `system_ext` following its own installer's rules; apps the ROM already has
+  with the same signer and an equal or newer version stay, the CN Play Store
+  stub is replaced. Every build checks the privileged permission allowlists of
+  each partition (as the device sees them through the vendor fstab overlays)
+  and stops if one is missing, because an enforcing ROM would not boot.
 - **App editor**: open any APK or jar of the ROM (apktool, with every resource
   provider of the ROM installed as a framework), browse and search the decode,
   edit smali and resources, stub methods (e.g. an ad check that returns false)

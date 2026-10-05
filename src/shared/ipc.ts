@@ -30,6 +30,14 @@ export interface SmaliMethodInfo {
   line: number
 }
 
+export interface GappsZipInfo {
+  path: string
+  sha256: string
+  version: string | null
+  arch: string | null
+  units: Array<{ name: string; tree: string; bytes: number }>
+}
+
 export type StubValue = 'void' | 0 | 1 | 'null'
 
 export interface StringResInfo {
@@ -71,6 +79,7 @@ export const IPC = {
   recipeSave: 'recipe:save',
   recipeCatalog: 'recipe:catalog',
   buildsReveal: 'builds:reveal',
+  gappsInspect: 'gapps:inspect',
   modsList: 'mods:list',
   modsListDir: 'mods:list-dir',
   modsRead: 'mods:read',
@@ -122,6 +131,8 @@ export interface HkApi {
     save(projectPath: string, recipe: Recipe): Promise<Recipe>
     /** Available smali patch sets. */
     catalog(): Promise<PatchSetInfo[]>
+    /** Read a MindTheGapps zip: SDK level, arch, apps and sha256. */
+    inspectGapps(zipPath: string): Promise<GappsZipInfo>
   }
   builds: {
     list(projectPath: string): Promise<BuildInfo[]>

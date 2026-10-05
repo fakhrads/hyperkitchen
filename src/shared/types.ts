@@ -166,6 +166,8 @@ export interface BuildInfo {
   recipeOperations: number
   /** What each enabled recipe operation changed. */
   operations: OperationReport[]
+  /** Privileged permission allowlist check of the built trees. */
+  privapp?: { enforced: boolean; appsChecked: number; violations: string[] }
   partitions: BuildPartition[]
   /** Super image read back and checked against the stock layout and the built images. */
   superVerified: boolean

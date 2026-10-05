@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess } from 'electron'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { z } from 'zod'
 import workerPath from '../worker/index?modulePath'
@@ -45,6 +45,7 @@ import {
   readStock,
   saveRecipe
 } from './stock'
+import { inspectGappsZip } from '../worker/recipe/gapps'
 import { PATCH_SETS } from '../worker/recipe/patchsets'
 
 // Test hooks: isolate user data and the default projects folder.
@@ -213,6 +214,14 @@ function registerIpc(): void {
       targets: s.targets.map((t) => t.path)
     }))
   )
+  ipcMain.handle(IPC.gappsInspect, (_e, zipPath: unknown) => {
+    const path = z
+      .string()
+      .min(1)
+      .refine((p) => isAbsolute(p) && p.endsWith('.zip'), 'an absolute path to a .zip')
+      .parse(zipPath)
+    return inspectGappsZip(path)
+  })
   ipcMain.handle(IPC.buildsList, (_e, p: unknown) => listBuilds(z.string().min(1).parse(p)))
   ipcMain.handle(IPC.buildsReveal, async (_e, p: unknown, id: unknown) => {
     shell.showItemInFolder(await buildDir(z.string().min(1).parse(p), z.string().parse(id)))

@@ -2,8 +2,11 @@
 // Layout per PKWARE APPNOTE.TXT 4.3.7 (local header), 4.3.12 (central directory),
 // 4.3.16 (end of central directory). Zip64 is not supported (APKs never need it).
 
+import { createReadStream, createWriteStream } from 'node:fs'
 import { open, type FileHandle } from 'node:fs/promises'
-import { inflateRawSync } from 'node:zlib'
+import { Readable, Transform } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+import { createInflateRaw, crc32, inflateRawSync } from 'node:zlib'
 import { readExact } from './source'
 
 const EOCD_SIG = 0x06054b50
@@ -15,6 +18,8 @@ const MAX_COMMENT = 0xffff
 export interface ZipEntry {
   name: string
   method: number
+  /** CRC-32 of the uncompressed data (central directory). */
+  crc?: number
   compressedSize: number
   size: number
   localHeaderOffset: number
@@ -30,13 +35,14 @@ export interface ZipIndex {
 export class ZipFile {
   private constructor(
     private readonly fh: FileHandle,
-    readonly index: ZipIndex
+    readonly index: ZipIndex,
+    readonly path: string
   ) {}
 
   static async open(path: string): Promise<ZipFile> {
     const fh = await open(path, 'r')
     try {
-      return new ZipFile(fh, await readIndex(fh))
+      return new ZipFile(fh, await readIndex(fh), path)
     } catch (e) {
       await fh.close()
       throw e
@@ -62,6 +68,42 @@ export class ZipFile {
     if (e.method === 0) return raw
     if (e.method === 8) return inflateRawSync(raw)
     throw new Error(`${name}: unsupported compression method ${e.method}`)
+  }
+
+  /**
+   * Stream one entry to a file without holding it in memory; checks the size and the CRC-32
+   * from the central directory.
+   */
+  async extract(name: string, dest: string): Promise<void> {
+    const e = this.index.entries.get(name)
+    if (!e) throw new Error(`${name}: no such entry`)
+    const loc = await readExact(this.fh, e.localHeaderOffset, 30)
+    if (loc.readUInt32LE(0) !== LOC_SIG) throw new Error(`${name}: bad local header`)
+    const dataPos = e.localHeaderOffset + 30 + loc.readUInt16LE(26) + loc.readUInt16LE(28)
+    if (e.method !== 0 && e.method !== 8)
+      throw new Error(`${name}: unsupported compression method ${e.method}`)
+    let crc = 0
+    let size = 0
+    const check = new Transform({
+      transform(chunk: Buffer, _enc, cb) {
+        crc = crc32(chunk, crc)
+        size += chunk.length
+        cb(null, chunk)
+      }
+    })
+    const out = createWriteStream(dest)
+    if (e.compressedSize === 0) {
+      await pipeline(Readable.from([]), check, out)
+    } else {
+      const src = createReadStream(this.path, {
+        start: dataPos,
+        end: dataPos + e.compressedSize - 1
+      })
+      if (e.method === 8) await pipeline(src, createInflateRaw(), check, out)
+      else await pipeline(src, check, out)
+    }
+    if (size !== e.size) throw new Error(`${name}: ${size} bytes, expected ${e.size}`)
+    if (e.crc !== undefined && crc >>> 0 !== e.crc >>> 0) throw new Error(`${name}: CRC mismatch`)
   }
 
   close(): Promise<void> {
@@ -108,6 +150,7 @@ async function readIndex(fh: FileHandle): Promise<ZipIndex> {
     entries.set(name, {
       name,
       method: cd.readUInt16LE(p + 10),
+      crc: cd.readUInt32LE(p + 16),
       compressedSize: cd.readUInt32LE(p + 20),
       size: cd.readUInt32LE(p + 24),
       localHeaderOffset: cd.readUInt32LE(p + 42)

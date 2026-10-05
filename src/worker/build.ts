@@ -20,6 +20,7 @@ import { assertInside } from '../main/safety'
 import { RecipeSchema } from '../shared/recipe'
 import type { BuildInfo, Inventory, StockInfo, VerityMode } from '../shared/types'
 import { detectJava, MIN_JAVA_MAJOR } from './java'
+import { checkPrivapp } from './privapp'
 import { applyRecipe } from './recipe/apply'
 import { CancelledError, throwIfCancelled, type JobContext } from './context'
 import { readErofsSuper } from './formats/erofs'
@@ -258,10 +259,14 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
       const inventory = JSON.parse(
         await readFile(join(stockDir, 'inventory.json'), 'utf8')
       ) as Inventory
-      const needsJava = recipe.operations.some((o) => o.enabled && o.type === 'patch')
+      const needsJava = recipe.operations.some(
+        (o) => o.enabled && (o.type === 'patch' || o.type === 'app-mod')
+      )
       const java = needsJava ? await detectJava(ctx.env) : null
       if (needsJava && (!java || java.major < MIN_JAVA_MAJOR)) {
-        throw new Error(`smali patches need Java ${MIN_JAVA_MAJOR}+ (install it from the Doctor)`)
+        throw new Error(
+          `smali patches and app mods need Java ${MIN_JAVA_MAJOR}+ (install it from the Doctor)`
+        )
       }
       info.operations = await applyRecipe(recipe, {
         projectPath: params.projectPath,
@@ -277,6 +282,38 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
         progress: (f, step) => stages.report(2, f, step)
       })
       for (const r of info.operations) info.warnings.push(...r.warnings.map((w) => `${r.id}: ${w}`))
+    }
+
+    // Privileged permission allowlists: an app on a system partition that requests a privileged
+    // platform permission missing from its partition's allowlist makes PackageManager abort the
+    // boot when ro.control_privapp_permissions=enforce (see privapp.ts).
+    {
+      const pa = await checkPrivapp(
+        join(workDir, 'fs'),
+        stock.partitions.filter((p) => p.extracted).map((p) => p.name)
+      )
+      if (!pa) {
+        info.warnings.push(
+          'privapp allowlist not checked: system/framework/framework-res.apk is missing'
+        )
+      } else {
+        info.privapp = {
+          enforced: pa.enforced,
+          appsChecked: pa.appsChecked,
+          violations: pa.violations.map((v) => `${v.packageName} (${v.apk}): ${v.permission}`)
+        }
+        log(
+          `privapp allowlist: ${pa.appsChecked} privileged apps, ${pa.violations.length} missing entries, mode ${pa.modes.join('/') || 'unset'}`
+        )
+        if (pa.violations.length) {
+          const list = info.privapp.violations.slice(0, 30).join('\n  ')
+          if (pa.enforced)
+            throw new Error(
+              `privileged permissions missing from the privapp allowlists (the device would not boot):\n  ${list}`
+            )
+          info.warnings.push(`privapp allowlist not enforced; missing entries:\n  ${list}`)
+        }
+      }
     }
 
     // ---- 1 + 2: rebuild and verify partitions

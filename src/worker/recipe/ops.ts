@@ -19,6 +19,8 @@ export interface OpContext {
   log: (s: string) => void
   /** romVersion of the stock ROM being modified (stock.json). */
   stockVersion?: string | null
+  /** Scratch directory for operations that extract files. */
+  tmp?: string
 }
 
 /**

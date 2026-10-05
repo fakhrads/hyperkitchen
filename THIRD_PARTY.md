@@ -59,6 +59,7 @@ never runs either of them.
 | UY-Scuti | see repository | Reference for Joyose and PowerKeeper patches |
 | unlock-cn-gms (MWTJC / fei-ke) | see repository | Reference for the `cn.google.services` permission edits |
 | hyperos-fcm-fix (dingwen07) | GPL-3.0 | Reference for the Greezer / MILLET_NO_RESTRICT_APP investigation |
+| MindTheGapps (vendor_gapps) | see repository | Its installer (update-binary) defines where GApps files go and their permissions; HyperKitchen reads a zip the user provides and bundles none |
 | PureCN onyx ROM | not stated | Its vendor_boot first-stage fstab was compared with stock to confirm the avb flag edit; no files are copied |
 
 ## Format specifications implemented

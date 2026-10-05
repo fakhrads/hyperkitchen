@@ -181,6 +181,8 @@ export const PURECN_GLOBAL_APPS = [
   'product/app/MIUIHealthGlobal',
   'product/app/ThemesStub',
   'system_ext/priv-app/ThemePicker',
+  // ThemePicker's privileged permission allowlist; without it an enforcing ROM does not boot.
+  'system_ext/etc/permissions/privapp_whitelist_com.android.wallpaper.xml',
   'system_ext/etc/default-permissions',
   'product/overlay/MiuiThemeManagerCnOverlay.apk',
   'product/etc/permissions/privapp-permissions-product.xml'
@@ -289,4 +291,21 @@ export function purecnImportOps(project: string, groups: ImportGroup[]): Operati
     })
   }
   return ops
+}
+
+/**
+ * GApps from a MindTheGapps zip on a CN base: drop the cn.google.services restriction and add
+ * the zip's apps (ROM copies of GmsCore/GSF stay when they are as new; the CN Play Store stub
+ * is replaced). The build checks every privileged permission against the allowlists.
+ */
+export function mindTheGappsOps(zip: string, sha256: string, exclude: string[]): Operation[] {
+  return [
+    { id: 'unlock-cn-gms', type: 'unlock-cn-gms', enabled: true, params: { includeGnss: false } },
+    {
+      id: 'gapps-mtg',
+      type: 'gapps',
+      enabled: true,
+      params: { zip, sha256, exclude, replaceDifferentSigner: true }
+    }
+  ]
 }

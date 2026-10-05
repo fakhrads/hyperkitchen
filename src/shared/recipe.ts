@@ -88,8 +88,19 @@ export const OperationSchema = z.discriminatedUnion('type', [
     type: z.literal('gapps'),
     enabled: z.boolean().default(true),
     params: z.object({
-      /** Absolute path of a MindTheGapps zip on the host. */
-      zip: z.string().min(1)
+      /** Absolute path of a MindTheGapps zip on the host (the user downloads it). */
+      zip: z.string().min(1),
+      /** sha256 of the zip when it was added; the build refuses another file. */
+      sha256: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/)
+        .optional(),
+      /** App folder names or overlay APK names to leave out. */
+      exclude: z
+        .array(z.string().min(1))
+        .default(['VelvetTitan', 'SetupWizard', 'GmsSetupWizardOverlay.apk']),
+      /** Replace a ROM app with the same package but another signer (the CN Play Store stub). */
+      replaceDifferentSigner: z.boolean().default(true)
     })
   })
 ])
