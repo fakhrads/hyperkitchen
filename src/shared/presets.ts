@@ -124,7 +124,11 @@ export const PURECN_GLOBAL_COMPAT = [
   'system_ext/priv-app/MiuiSystemUI/MiuiSystemUI.apk',
   'product/etc/device_features/onyx.xml',
   'system_ext/etc/init/init.miui.ext.rc',
-  'vendor/etc/init/hw/init.target.rc'
+  'vendor/etc/init/hw/init.target.rc',
+  // The About phone spec card: values (the patched Settings reads them) and the market name
+  // that odm/etc/build.prop imports through the SKU props set in init.target.rc.
+  'product/etc/device_info.json',
+  'odm/etc/onyx_7.19.0.prop'
 ]
 
 /** Google apps PureCN adds, with their permission and sysconfig files. */
