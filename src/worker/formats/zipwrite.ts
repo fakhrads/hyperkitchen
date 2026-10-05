@@ -281,3 +281,45 @@ export async function rewriteZip(
     await fh.close()
   }
 }
+
+/**
+ * A new zip with every entry stored (method 0), in the given order, fixed DOS time. Used for
+ * bootanimation.zip, which BootAnimation.cpp refuses unless every entry is stored.
+ */
+export function storedZip(entries: Array<{ name: string; data: Buffer }>): Buffer {
+  const locals: Buffer[] = []
+  const central: Buffer[] = []
+  let pos = 0
+  for (const e of entries) {
+    const name = Buffer.from(e.name, 'utf8')
+    const utf8 = name.length !== e.name.length ? 0x800 : 0
+    const crc = crc32(e.data) >>> 0
+    const lh = Buffer.alloc(30)
+    lh.writeUInt32LE(LOC_SIG, 0)
+    lh.writeUInt16LE(10, 4)
+    lh.writeUInt16LE(utf8, 6)
+    lh.writeUInt16LE(0, 8)
+    lh.writeUInt16LE(DOS_TIME, 10)
+    lh.writeUInt16LE(DOS_DATE, 12)
+    lh.writeUInt32LE(crc, 14)
+    lh.writeUInt32LE(e.data.length, 18)
+    lh.writeUInt32LE(e.data.length, 22)
+    lh.writeUInt16LE(name.length, 26)
+    const ch = Buffer.alloc(46)
+    ch.writeUInt32LE(CEN_SIG, 0)
+    ch.writeUInt16LE(10, 4)
+    lh.copy(ch, 6, 4, 30)
+    ch.writeUInt32LE(pos, 42)
+    locals.push(lh, name, e.data)
+    central.push(ch, name)
+    pos += 30 + name.length + e.data.length
+  }
+  const cd = Buffer.concat(central)
+  const eocd = Buffer.alloc(22)
+  eocd.writeUInt32LE(EOCD_SIG, 0)
+  eocd.writeUInt16LE(entries.length, 8)
+  eocd.writeUInt16LE(entries.length, 10)
+  eocd.writeUInt32LE(cd.length, 12)
+  eocd.writeUInt32LE(pos, 16)
+  return Buffer.concat([...locals, cd, eocd])
+}

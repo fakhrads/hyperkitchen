@@ -38,6 +38,20 @@ export interface GappsZipInfo {
   units: Array<{ name: string; tree: string; bytes: number }>
 }
 
+export interface MediaFileInfo {
+  path: string
+  sha256: string
+  size: number
+  image: { type: 'png' | 'jpeg' | 'webp'; width: number; height: number } | null
+  bootanimation: {
+    desc: { width: number; height: number; fps: number; parts: unknown[] } | null
+    frames: number
+    compressedEntries: number
+    problems: string[]
+    warnings: string[]
+  } | null
+}
+
 export type StubValue = 'void' | 0 | 1 | 'null'
 
 export interface StringResInfo {
@@ -80,6 +94,7 @@ export const IPC = {
   recipeCatalog: 'recipe:catalog',
   buildsReveal: 'builds:reveal',
   gappsInspect: 'gapps:inspect',
+  mediaInspect: 'media:inspect',
   modsList: 'mods:list',
   modsListDir: 'mods:list-dir',
   modsRead: 'mods:read',
@@ -133,6 +148,8 @@ export interface HkApi {
     catalog(): Promise<PatchSetInfo[]>
     /** Read a MindTheGapps zip: SDK level, arch, apps and sha256. */
     inspectGapps(zipPath: string): Promise<GappsZipInfo>
+    /** Read an image or bootanimation.zip chosen for the media operation. */
+    inspectMedia(projectPath: string, filePath: string): Promise<MediaFileInfo>
   }
   builds: {
     list(projectPath: string): Promise<BuildInfo[]>

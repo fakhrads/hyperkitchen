@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { GappsZipInfo, PatchSetInfo } from '../../../shared/ipc'
+import type { GappsZipInfo, MediaFileInfo, PatchSetInfo } from '../../../shared/ipc'
 import {
   mindTheGappsOps,
   purecnImportOps,
@@ -33,6 +33,14 @@ function summary(op: Operation): string {
       return op.params.zip
     case 'app-mod':
       return `mods/${op.params.mod}`
+    case 'media':
+      return [
+        op.params.bootanimation && `boot animation (${op.params.bootanimation.kind})`,
+        op.params.wallpaper && 'home wallpaper',
+        op.params.lockWallpaper && 'lock wallpaper'
+      ]
+        .filter(Boolean)
+        .join(', ')
     case 'import-from-rom':
       return `${op.params.paths.length} paths from ${op.params.project}${op.params.replace.length ? `, ${op.params.replace.length} replacing stock` : ''}`
   }
@@ -192,10 +200,12 @@ export function RecipeTab({
           })}
       </div>
 
-      <h2>Branding</h2>
+      <h2>Branding (name, boot animation, wallpapers)</h2>
       <Branding
         prop={find(BRANDING_PROP_OP)}
         patch={patchOn(BRANDING_PATCH)}
+        projectPath={projectPath}
+        media={ops.find((o) => o.id === MEDIA_OP)}
         onChange={(add, removeIds) =>
           set([
             ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
@@ -464,15 +474,33 @@ const BRANDING_PATCH = 'branding-about'
 const BRANDING_PROP_OP = 'branding-prop'
 const BRAND_PROP = 'ro.hyperkitchen.rom.display'
 
+const MEDIA_OP = 'branding-media'
+type MediaOp = Extract<Operation, { type: 'media' }>
+type MediaKey = 'bootanimation' | 'wallpaper' | 'lockWallpaper'
+
 function Branding({
+  projectPath,
   prop,
   patch,
+  media,
   onChange
 }: {
+  projectPath: string
   prop: Operation | undefined
   patch: Operation | undefined
+  media: Operation | undefined
   onChange: (add: Operation[], removeIds: string[]) => void
 }): React.JSX.Element {
+  const mediaParams = media?.type === 'media' ? media.params : {}
+  const setMedia = (key: MediaKey, value: MediaOp['params'][MediaKey] | undefined): void => {
+    const params = { ...mediaParams, [key]: value }
+    if (!value) delete params[key]
+    if (!params.bootanimation && !params.wallpaper && !params.lockWallpaper) {
+      onChange([], [MEDIA_OP])
+      return
+    }
+    onChange([{ id: MEDIA_OP, type: 'media', enabled: true, params } as MediaOp], [])
+  }
   const current = prop?.type === 'set-props' ? (prop.params.set[BRAND_PROP] ?? '') : ''
   const [name, setName] = useState(current)
   const on = !!patch?.enabled && !!prop?.enabled
@@ -529,6 +557,152 @@ function Branding({
           </button>
         )}
       </div>
+      <MediaPicker
+        title="Boot animation"
+        hint="A bootanimation.zip (checked against the AOSP format; compressed entries are stored), or one logo image shown centred until boot completes."
+        extensions={['zip', 'png', 'jpg', 'jpeg', 'webp']}
+        projectPath={projectPath}
+        current={mediaParams.bootanimation?.file}
+        withBackground
+        onPick={(info, background) =>
+          setMedia('bootanimation', {
+            file: info.path,
+            sha256: info.sha256,
+            kind: info.bootanimation ? 'zip' : 'image',
+            background
+          })
+        }
+        onRemove={() => setMedia('bootanimation', undefined)}
+      />
+      <MediaPicker
+        title="Home wallpaper"
+        hint="PNG or JPEG for every product/media/wallpaper/wallpaper_<colour>.jpg (stock: PNG, 1280x2772)."
+        extensions={['png', 'jpg', 'jpeg']}
+        projectPath={projectPath}
+        current={mediaParams.wallpaper?.file}
+        onPick={(info) => setMedia('wallpaper', { file: info.path, sha256: info.sha256 })}
+        onRemove={() => setMedia('wallpaper', undefined)}
+      />
+      <MediaPicker
+        title="Lock screen wallpaper"
+        hint="PNG for product/media/theme/default/lock_wallpaper (stock: PNG, 1280x2772)."
+        extensions={['png']}
+        projectPath={projectPath}
+        current={mediaParams.lockWallpaper?.file}
+        onPick={(info) => setMedia('lockWallpaper', { file: info.path, sha256: info.sha256 })}
+        onRemove={() => setMedia('lockWallpaper', undefined)}
+      />
+      <p className="sub" style={{ margin: '8px 0 0' }}>
+        A theme you apply later on the phone can override these; the files here are the ROM
+        defaults.
+      </p>
+    </div>
+  )
+}
+
+function MediaPicker({
+  title,
+  hint,
+  extensions,
+  projectPath,
+  current,
+  withBackground,
+  onPick,
+  onRemove
+}: {
+  title: string
+  hint: string
+  extensions: string[]
+  projectPath: string
+  current: string | undefined
+  withBackground?: boolean
+  onPick: (info: MediaFileInfo, background: string) => void
+  onRemove: () => void
+}): React.JSX.Element {
+  const [info, setInfo] = useState<MediaFileInfo | null>(null)
+  const [background, setBackground] = useState('#000000')
+  const [error, setError] = useState<string | null>(null)
+  const pick = async (): Promise<void> => {
+    const f = await window.hk.dialog.pickFile(`Choose: ${title}`, extensions)
+    if (!f) return
+    setError(null)
+    try {
+      setInfo(await window.hk.recipe.inspectMedia(projectPath, f))
+    } catch (e) {
+      setError(errorText(e))
+    }
+  }
+  const ba = info?.bootanimation
+  const usable = info && (ba ? ba.problems.length === 0 : info.image !== null)
+  return (
+    <div style={{ marginTop: 12 }} data-testid={`media-${title}`}>
+      <div className="row">
+        <strong>{title}</strong>
+        {current ? (
+          <span className="mono">
+            {current} <button onClick={onRemove}>Remove</button>
+          </span>
+        ) : (
+          <span className="sub" style={{ margin: 0 }}>
+            stock
+          </span>
+        )}
+        <button onClick={() => void pick()}>Choose…</button>
+      </div>
+      <div className="sub" style={{ margin: '2px 0 0' }}>
+        {hint}
+      </div>
+      {error && <p className="error-text">{error}</p>}
+      {info && (
+        <div className="log" style={{ marginTop: 6 }}>
+          <div>
+            {info.path} ({formatSize(info.size)})
+          </div>
+          {info.image && (
+            <div>
+              {info.image.type.toUpperCase()} {info.image.width}x{info.image.height}
+            </div>
+          )}
+          {ba?.desc && (
+            <div>
+              {ba.desc.width}x{ba.desc.height} at {ba.desc.fps} fps, {ba.desc.parts.length} parts,{' '}
+              {ba.frames} frames
+            </div>
+          )}
+          {ba?.problems.map((p) => (
+            <div key={p} className="error-text">
+              {p}
+            </div>
+          ))}
+          {ba?.warnings.map((w) => (
+            <div key={w} className="stderr">
+              {w}
+            </div>
+          ))}
+          {!ba && !info.image && <div className="error-text">Not a supported image.</div>}
+          {withBackground && !ba && info.image && (
+            <label style={{ display: 'block' }}>
+              Background{' '}
+              <input
+                type="text"
+                value={background}
+                onChange={(e) => setBackground(e.target.value)}
+                style={{ minWidth: 0, width: 100 }}
+              />
+            </label>
+          )}
+          <button
+            disabled={!usable || (withBackground && !ba && !/^#[0-9a-fA-F]{6}$/.test(background))}
+            onClick={() => {
+              onPick(info, background)
+              setInfo(null)
+            }}
+            style={{ marginTop: 6 }}
+          >
+            Use this file
+          </button>
+        </div>
+      )}
     </div>
   )
 }

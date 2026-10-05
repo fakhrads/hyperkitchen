@@ -10,6 +10,7 @@ import type { ApkInfo } from '../../shared/types'
 import { throwIfCancelled } from '../context'
 import { buildMod, readMod } from '../appmod/mod'
 import { applyGapps } from './gapps'
+import { applyMedia } from './media'
 import { FILE_OPS, newReport, type OpContext, type OpRunner } from './ops'
 import { patchSet } from './patchsets'
 import { artifactsOf, patchTarget, type PatchEnv } from './patcher'
@@ -22,6 +23,9 @@ FILE_OPS.gapps = ((ctx, op, r) =>
     r,
     join(ctx.tmp as string, 'gapps')
   )) as OpRunner
+
+FILE_OPS.media = ((ctx, op, r) =>
+  applyMedia(ctx, op as Extract<Operation, { type: 'media' }>, r)) as OpRunner
 
 export interface ApplyEnv {
   /** The project (app mods live in <project>/mods). */

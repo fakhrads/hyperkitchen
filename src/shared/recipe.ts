@@ -10,6 +10,13 @@ const TreePath = z
   .min(1)
   .refine((p) => !p.startsWith('/') && !p.split('/').includes('..'), 'must be a relative path')
 
+/** An absolute file on the host, chosen by the user. */
+const HostFile = z
+  .string()
+  .min(1)
+  .refine((p) => p.startsWith('/') || /^[A-Za-z]:[\\/]/.test(p), 'must be an absolute path')
+const Sha256 = z.string().regex(/^[0-9a-f]{64}$/)
+
 export const OperationSchema = z.discriminatedUnion('type', [
   z.object({
     id: z.string().min(1),
@@ -82,6 +89,31 @@ export const OperationSchema = z.discriminatedUnion('type', [
       /** A mod in <project>/mods/<mod> (see shared/appmod.ts). */
       mod: z.string().regex(MOD_ID)
     })
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('media'),
+    enabled: z.boolean().default(true),
+    params: z
+      .object({
+        /** product/media/bootanimation.zip from a zip, or a static one from a logo image. */
+        bootanimation: z
+          .object({
+            file: HostFile,
+            sha256: Sha256,
+            kind: z.enum(['zip', 'image']),
+            background: z
+              .string()
+              .regex(/^#[0-9a-fA-F]{6}$/)
+              .default('#000000')
+          })
+          .optional(),
+        /** PNG or JPEG for every product/media/wallpaper/wallpaper_<colour>.jpg (stock holds PNG). */
+        wallpaper: z.object({ file: HostFile, sha256: Sha256 }).optional(),
+        /** PNG for product/media/theme/default/lock_wallpaper. */
+        lockWallpaper: z.object({ file: HostFile, sha256: Sha256 }).optional()
+      })
+      .refine((p) => p.bootanimation || p.wallpaper || p.lockWallpaper, 'nothing to replace')
   }),
   z.object({
     id: z.string().min(1),

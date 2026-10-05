@@ -110,6 +110,10 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   verify APKs on system partitions, so the apps keep their identity. There is
   no framework-wide signature-verification bypass: the kitchen keeps real
   signatures instead.
+- **Branding media**: replace the boot animation (a bootanimation.zip checked
+  against the AOSP format, or a static one built from one logo image) and the
+  home and lock wallpapers. Files are checked by content (type and size) and
+  the boot animation is stored uncompressed, as the player requires.
 - **GApps**: a MindTheGapps zip you download is added to `product` and
   `system_ext` following its own installer's rules; apps the ROM already has
   with the same signer and an equal or newer version stay, the CN Play Store

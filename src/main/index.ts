@@ -46,6 +46,7 @@ import {
   saveRecipe
 } from './stock'
 import { inspectGappsZip } from '../worker/recipe/gapps'
+import { inspectMediaFile } from '../worker/recipe/media'
 import { PATCH_SETS } from '../worker/recipe/patchsets'
 
 // Test hooks: isolate user data and the default projects folder.
@@ -168,7 +169,10 @@ function registerIpc(): void {
       title: String(title ?? 'Choose file'),
       properties: ['openFile' as const],
       filters: [
-        { name: 'ROM', extensions: z.array(z.string().regex(/^[a-z0-9]+$/)).parse(extensions) },
+        {
+          name: 'Supported files',
+          extensions: z.array(z.string().regex(/^[a-z0-9]+$/)).parse(extensions)
+        },
         { name: 'All files', extensions: ['*'] }
       ]
     }
@@ -214,6 +218,15 @@ function registerIpc(): void {
       targets: s.targets.map((t) => t.path)
     }))
   )
+  ipcMain.handle(IPC.mediaInspect, async (_e, projectPath: unknown, filePath: unknown) => {
+    const proj = await openProject(z.string().min(1).parse(projectPath))
+    const file = z
+      .string()
+      .min(1)
+      .refine((p) => isAbsolute(p) && /\.(zip|png|jpe?g|webp)$/i.test(p), 'a .zip or image file')
+      .parse(filePath)
+    return inspectMediaFile(file, join(proj.path, 'stock', 'fs'))
+  })
   ipcMain.handle(IPC.gappsInspect, (_e, zipPath: unknown) => {
     const path = z
       .string()
