@@ -31,6 +31,8 @@ function summary(op: Operation): string {
       return `mods/${op.params.mod}`
     case 'spec-card':
       return `${op.params.entries.length} region entries`
+    case 'device-feature':
+      return [...Object.keys(op.params.bools), ...Object.keys(op.params.ints)].join(', ')
     case 'app-replace':
       return `${op.params.target} <- external APK`
     case 'add-app':
@@ -270,6 +272,10 @@ export function RecipeTab({
         return userDebloat?.type === 'debloat' ? `${userDebloat.params.packages.length} pkg` : null
       case 'encryption':
         return encryptionOff ? 'off' : null
+      case 'flagship': {
+        const n = enabled.filter((o) => o.id.startsWith('flagship-')).length
+        return n ? `${n} on` : null
+      }
       case 'operations':
         return `${enabled.length}/${ops.length}`
       default:
@@ -431,6 +437,23 @@ export function RecipeTab({
               )
             })}
         </div>
+      </Section>
+      <Section
+        id="flagship"
+        title={'Flagship features (optional)'}
+        chip={sectionChip('flagship')}
+        defaultOpen={false}
+      >
+        <FlagshipFeatures
+          ops={ops}
+          device={stock.device}
+          onChange={(add, removeIds) =>
+            set([
+              ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
+              ...add
+            ])
+          }
+        />
       </Section>
       <Section
         id="branding"
@@ -1679,5 +1702,103 @@ function Section({
         {children}
       </div>
     </section>
+  )
+}
+
+type SetPropsOp = Extract<Operation, { type: 'set-props' }>
+type DeviceFeatureOp = Extract<Operation, { type: 'device-feature' }>
+
+/**
+ * Optional flagship Xiaomi features enabled with the smallest possible change: a build.prop
+ * value or a device_features flag the ROM already carries. Each is an individual checkbox.
+ */
+function FlagshipFeatures({
+  ops,
+  device,
+  onChange
+}: {
+  ops: Operation[]
+  device: string | null
+  onChange: (add: Operation[], removeIds: string[]) => void
+}): React.JSX.Element {
+  const aodFile = `product/etc/device_features/${device ?? 'onyx'}.xml`
+  const features: Array<{
+    id: string
+    label: string
+    hint: string
+    op: SetPropsOp | DeviceFeatureOp
+  }> = [
+    {
+      id: 'flagship-bg-blur',
+      label: 'Background blur on by default',
+      hint: 'Turns the window/background blur on out of the box (the ROM already supports it: persist.sys.background_blur_supported=true). Sets persist.sys.background_blur_status_default=true.',
+      op: {
+        id: 'flagship-bg-blur',
+        type: 'set-props',
+        enabled: true,
+        params: {
+          file: 'product/etc/build.prop',
+          set: { 'persist.sys.background_blur_status_default': 'true' },
+          remove: []
+        }
+      }
+    },
+    {
+      id: 'flagship-launch-blur',
+      label: 'Blur behind app launch/close',
+      hint: 'Enables the launcher blur during app open/close. Sets ro.launcher.blur.appLaunch=1.',
+      op: {
+        id: 'flagship-launch-blur',
+        type: 'set-props',
+        enabled: true,
+        params: {
+          file: 'system/system/build.prop',
+          set: { 'ro.launcher.blur.appLaunch': '1' },
+          remove: []
+        }
+      }
+    },
+    {
+      id: 'flagship-fullscreen-aod',
+      label: 'Fullscreen always-on display',
+      hint: `Enables the fullscreen AOD style (support_aod_fullscreen) in ${aodFile}. Always-on AOD itself is already available in Settings.`,
+      op: {
+        id: 'flagship-fullscreen-aod',
+        type: 'device-feature',
+        enabled: true,
+        params: { file: aodFile, bools: { support_aod_fullscreen: true }, ints: {} }
+      }
+    }
+  ]
+  return (
+    <div className="panel">
+      <p className="sub" style={{ margin: '0 0 8px' }}>
+        Each option is one small, verified change (a prop or a device flag the ROM already has).
+        Tick only what you want.
+      </p>
+      {features.map((f) => {
+        const on = ops.some((o) => o.id === f.id && o.enabled)
+        return (
+          <label key={f.id} style={{ display: 'block', marginBottom: 8 }}>
+            <input
+              type="checkbox"
+              checked={on}
+              onChange={(e) => (e.target.checked ? onChange([f.op], []) : onChange([], [f.id]))}
+              data-testid={f.id}
+            />{' '}
+            <strong>{f.label}</strong>
+            <div className="sub" style={{ margin: '2px 0 0 22px' }}>
+              {f.hint}
+            </div>
+          </label>
+        )
+      })}
+      <p className="sub" style={{ margin: '6px 0 0' }}>
+        Not offered here, and why: 1/30/90 Hz refresh needs an LTPO panel or driver support this
+        device lacks (onyx exposes 60 and 120 Hz only); disabling the app-install security scan and
+        enabling USB debugging are runtime settings best done after boot with ADB/Shizuku, not a
+        clean build-time change.
+      </p>
+    </div>
   )
 }

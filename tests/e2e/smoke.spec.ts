@@ -234,10 +234,13 @@ test('adds an About phone spec card entry through the form', async () => {
   await expect(page.getByTestId('recipe-ops')).toContainText('1 region entries')
 })
 
-test('toggles a feature tweak into the recipe', async () => {
+test('toggles a feature tweak and a flagship feature into the recipe', async () => {
   await page.getByTestId('tab-recipe').click()
   await page.getByTestId('tweak-disable-ota').check()
   await expect(page.getByTestId('recipe-ops')).toContainText('disable-ota')
+  await page.getByTestId('section-flagship').click()
+  await page.getByTestId('flagship-bg-blur').check()
+  await expect(page.getByTestId('recipe-ops')).toContainText('flagship-bg-blur')
 })
 
 test('deletes a build from the list', async () => {

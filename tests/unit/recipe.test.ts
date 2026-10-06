@@ -489,3 +489,65 @@ describe('spec-card operation', () => {
     expect(r2.added).not.toContain('product/etc/device_info.json')
   })
 })
+
+describe('device-feature operation', () => {
+  it('flips a bool and sets an integer in a device_features xml, erroring on a missing flag', async () => {
+    const dir = join(tmp, `df${Math.random().toString(36).slice(2)}`)
+    await mkdir(join(dir, 'config'), { recursive: true })
+    await mkdir(join(dir, 'product/etc/device_features'), { recursive: true })
+    const xml =
+      '<features>\n  <bool name="support_aod_fullscreen">false</bool>\n  <integer name="defaultFps">60</integer>\n</features>\n'
+    await writeFile(join(dir, 'product/etc/device_features/onyx.xml'), xml)
+    await writeFile(
+      join(dir, 'config/product_fs_config'),
+      ['/ 0 0 0755', 'product 0 0 0755', 'product/etc/device_features/onyx.xml 0 0 0644', ''].join(
+        '\n'
+      )
+    )
+    await writeFile(
+      join(dir, 'config/product_file_contexts'),
+      ['/ u:object_r:system_file:s0', '', ''].join('\n')
+    )
+    const { FILE_OPS, newReport } = await import('../../src/worker/recipe/ops')
+    const tree = await WorkTree.open(dir, ['product'])
+    const op = RecipeSchema.parse({
+      schema: 1,
+      operations: [
+        {
+          id: 'f',
+          type: 'device-feature',
+          enabled: true,
+          params: {
+            file: 'product/etc/device_features/onyx.xml',
+            bools: { support_aod_fullscreen: true },
+            ints: { defaultFps: 120 }
+          }
+        }
+      ]
+    }).operations[0]
+    await FILE_OPS['device-feature']!({ tree, apks: [], log: () => {} }, op, newReport(op))
+    const out = readFileSync(join(dir, 'product/etc/device_features/onyx.xml'), 'utf8')
+    expect(out).toContain('<bool name="support_aod_fullscreen">true</bool>')
+    expect(out).toContain('<integer name="defaultFps">120</integer>')
+
+    const bad = RecipeSchema.parse({
+      schema: 1,
+      operations: [
+        {
+          id: 'g',
+          type: 'device-feature',
+          enabled: true,
+          params: {
+            file: 'product/etc/device_features/onyx.xml',
+            bools: { not_a_real_flag: true },
+            ints: {}
+          }
+        }
+      ]
+    }).operations[0]
+    const t2 = await WorkTree.open(dir, ['product'])
+    await expect(
+      FILE_OPS['device-feature']!({ tree: t2, apks: [], log: () => {} }, bad, newReport(bad))
+    ).rejects.toThrow(/no <bool name="not_a_real_flag">/)
+  })
+})

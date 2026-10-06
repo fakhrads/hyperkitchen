@@ -326,3 +326,31 @@ async function specCard(
   }
 }
 FILE_OPS['spec-card'] = specCard as OpRunner
+
+/**
+ * Edit flags in a MIUI device_features XML (product/etc/device_features/<device>.xml), the
+ * per-device file that gates flagship features. Flips <bool name="X"> and sets <integer name="X">
+ * by name; a named flag that is absent is an error, so a wrong key never silently does nothing.
+ */
+async function deviceFeature(
+  ctx: OpContext,
+  op: Extract<Operation, { type: 'device-feature' }>,
+  r: OperationReport
+): Promise<void> {
+  const { file } = op.params
+  if (!ctx.tree.exists(file)) throw new Error(`${file} is not in this ROM`)
+  let text = (await ctx.tree.read(file)).toString('utf8')
+  const setFlag = (tag: string, name: string, value: string): void => {
+    const re = new RegExp(
+      `(<${tag} name="${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>)([^<]*)(</${tag}>)`
+    )
+    if (!re.test(text)) throw new Error(`${file}: no <${tag} name="${name}">`)
+    text = text.replace(re, `$1${value}$3`)
+  }
+  for (const [name, v] of Object.entries(op.params.bools ?? {}))
+    setFlag('bool', name, v ? 'true' : 'false')
+  for (const [name, v] of Object.entries(op.params.ints ?? {})) setFlag('integer', name, String(v))
+  await ctx.tree.writeExisting(file, text)
+  r.modified.push(file)
+}
+FILE_OPS['device-feature'] = deviceFeature as OpRunner

@@ -144,6 +144,12 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   (in Settings); recipes pick it from a dropdown instead of browsing each time.
   Files stay on disk, referenced by path and hash; nothing is bundled or
   downloaded.
+- **Flagship features (optional)**: individual checkboxes that enable Xiaomi
+  flagship touches with the smallest possible change (a build.prop value or a
+  device_features flag the ROM already carries): background blur, app-launch
+  blur, fullscreen always-on display. Hardware-gated or runtime-only mods
+  (sub-60Hz refresh, install-scan, default USB debugging) are deliberately left
+  out with a note.
 - **System defaults and tweaks**: set the default language (ro.product.locale)
   and toggle common HyperOS-mod choices (disable OTA updates, remove analytics,
   remove the GetApps store), each shown as a plain debloat/set-props operation.

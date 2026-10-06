@@ -92,6 +92,17 @@ export const OperationSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     id: z.string().min(1),
+    type: z.literal('device-feature'),
+    enabled: z.boolean().default(true),
+    params: z.object({
+      /** The device_features XML, e.g. product/etc/device_features/onyx.xml. */
+      file: TreePath,
+      bools: z.record(z.string().min(1), z.boolean()).default({}),
+      ints: z.record(z.string().min(1), z.number().int()).default({})
+    })
+  }),
+  z.object({
+    id: z.string().min(1),
     type: z.literal('spec-card'),
     enabled: z.boolean().default(true),
     params: z.object({
