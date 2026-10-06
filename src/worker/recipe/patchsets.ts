@@ -480,6 +480,45 @@ export const PATCH_SETS: PatchSet[] = [
     ]
   },
   {
+    id: 'settings-global-features',
+    title: 'Settings: unlock the global font and ringtone entries (best effort)',
+    description:
+      'OPTIONAL, off by default. On a CN build Settings gates the global system-font and ringtone entries behind IS_GLOBAL_BUILD. This forces those checks on: SettingsFeatures.checkGlobalFontSettingEnable and MiuiDisplaySettings.onPreferenceTreeClick (the font entry and its click), and RingtoneCardPreference.checkGlobalRingtoneAccess. Both read from the CN theme provider (com.android.thememanager), so forcing is safe (it stays hidden if the provider says no, no crash) but whether the entries actually appear depends on that provider answering on a CN base. Other IS_GLOBAL_BUILD gates in Settings were left alone: they either hide a feature when forced, are CN-only, or back a debloated component.',
+    targets: [
+      {
+        path: 'system_ext/priv-app/Settings/Settings.apk',
+        verifiedSha256: '667d4f2b0c2e3aeb6c232fe229048f9917ae141969aaee243ccb70e3a320ef14',
+        rules: [
+          {
+            kind: 'force-sget',
+            cls: 'com/android/settings/utils/SettingsFeatures',
+            method: 'checkGlobalFontSettingEnable(Landroid/content/Context;)Z',
+            field: GLOBAL,
+            value: 1,
+            expect: 1
+          },
+          {
+            kind: 'force-sget',
+            cls: 'com/android/settings/MiuiDisplaySettings',
+            method:
+              'onPreferenceTreeClick(Landroidx/preference/PreferenceScreen;Landroidx/preference/Preference;)Z',
+            field: GLOBAL,
+            value: 1,
+            expect: 1
+          },
+          {
+            kind: 'force-sget',
+            cls: 'com/android/settings/sound/RingtoneCardPreference',
+            method: 'checkGlobalRingtoneAccess(Landroid/content/Context;)Z',
+            field: GLOBAL,
+            value: 1,
+            expect: 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     id: 'launcher-no-ads',
     title: 'Remove the launcher folder and app-drawer recommendation ads',
     description:
