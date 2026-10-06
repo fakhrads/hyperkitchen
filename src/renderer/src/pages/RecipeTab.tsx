@@ -1676,9 +1676,11 @@ function SystemTweaks({
         </InfoDot>
       </div>
       <p className="sub" style={{ margin: '4px 0 0' }}>
-        This ROM includes: {supportedLocales.length ? supportedLocales.join(', ') : '(unknown)'}.
-        Other languages (e.g. Indonesian) are not in a CN base; they need a language pack ported
-        from a global ROM, added via the materials library.
+        framework-res.apk includes:{' '}
+        {supportedLocales.length ? supportedLocales.join(', ') : '(unknown)'}. The system language
+        picker is limited to these, even though most other apps carry many more languages. To add
+        one (e.g. Indonesian) you replace framework-res.apk (and Settings.apk) with versions from a
+        global ROM that include it, via Replace an app or Import from a reference ROM.
       </p>
       <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
         {TWEAKS.map((t) => {
