@@ -231,3 +231,4 @@ Setiap milestone selesai bila: jalan di Linux x64 dan macOS arm64 (lokal, atau C
 3. **`romdiff.zip`** saat M2.
 4. **Java**: setuju dengan usulan 2.5 (unduh Temurin on-demand dari Doctor)?
 5. **CI macOS** lewat GitHub Actions: setuju?
+  - Status 2026-10-06 (app replacer): operasi `app-replace` mengganti satu .apk di ROM dengan APK eksternal (launcher/SystemUI modded) dari materials library. APK mempertahankan tanda tangannya sendiri (Android tidak memverifikasi APK partisi sistem); metadata file asli dipertahankan; oat/odex/vdex dan split APK basi dihapus; sharedUserId yang tidak cocok ditolak keras (mencegah bootloop), package berbeda cuma diperingatkan. Diverifikasi di tree onyx (ganti MiuiHome, tolak Settings uid system) dan unit test APK sintetis.

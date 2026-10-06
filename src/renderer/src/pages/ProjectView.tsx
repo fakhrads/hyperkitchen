@@ -248,6 +248,7 @@ export function ProjectView({
             <RecipeTab
               projectPath={project.path}
               stock={stock}
+              apks={inventory?.apks ?? []}
               pendingDebloat={pendingDebloat}
               onDebloatConsumed={() => setPendingDebloat([])}
             />

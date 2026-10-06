@@ -104,7 +104,8 @@ export function SettingsPage({ info }: { info: AppInfo | null }): React.JSX.Elem
 const KIND_LABEL: Record<Material['kind'], string> = {
   gapps: 'MindTheGapps zip',
   'reference-rom': 'Reference ROM (unpacked project)',
-  image: 'Image (logo / wallpaper)'
+  image: 'Image (logo / wallpaper)',
+  app: 'App APK (modded launcher, etc.)'
 }
 
 function MaterialsPanel(): React.JSX.Element {
@@ -150,6 +151,9 @@ function MaterialsPanel(): React.JSX.Element {
         </button>
         <button disabled={busy} onClick={() => void add('image')}>
           Add image…
+        </button>
+        <button disabled={busy} onClick={() => void add('app')} data-testid="material-add-app">
+          Add app APK…
         </button>
         {busy && (
           <span className="sub" style={{ margin: 0 }}>

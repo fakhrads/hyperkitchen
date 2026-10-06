@@ -5,7 +5,7 @@ import type { Material, Settings } from '../shared/types'
 
 const MaterialSchema = z.object({
   id: z.string().min(1),
-  kind: z.enum(['gapps', 'reference-rom', 'image']),
+  kind: z.enum(['gapps', 'reference-rom', 'image', 'app']),
   path: z.string().min(1),
   label: z.string(),
   sha256: z

@@ -9,6 +9,7 @@ import type { Operation, OperationReport, Recipe } from '../../shared/recipe'
 import type { ApkInfo } from '../../shared/types'
 import { throwIfCancelled } from '../context'
 import { buildMod, readMod } from '../appmod/mod'
+import { applyAppReplace } from './appreplace'
 import { applyGapps } from './gapps'
 import { applyMedia } from './media'
 import { FILE_OPS, newReport, type OpContext, type OpRunner } from './ops'
@@ -26,6 +27,9 @@ FILE_OPS.gapps = ((ctx, op, r) =>
 
 FILE_OPS.media = ((ctx, op, r) =>
   applyMedia(ctx, op as Extract<Operation, { type: 'media' }>, r)) as OpRunner
+
+FILE_OPS['app-replace'] = ((ctx, op, r) =>
+  applyAppReplace(ctx, op as Extract<Operation, { type: 'app-replace' }>, r)) as OpRunner
 
 export interface ApplyEnv {
   /** The project (app mods live in <project>/mods). */

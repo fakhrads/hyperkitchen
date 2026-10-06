@@ -27,7 +27,7 @@ export interface AppInfo {
 /** A reusable build ingredient on this machine, referenced by path (never copied into the repo). */
 export interface Material {
   id: string
-  kind: 'gapps' | 'reference-rom' | 'image'
+  kind: 'gapps' | 'reference-rom' | 'image' | 'app'
   path: string
   label: string
   /** sha256 of the file (gapps, image); absent for a reference-rom folder. */

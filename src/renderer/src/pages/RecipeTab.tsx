@@ -7,8 +7,9 @@ import {
   type ImportGroup
 } from '../../../shared/presets'
 import { RecipeSchema, type Operation, type Recipe } from '../../../shared/recipe'
-import type { Material, StockInfo } from '../../../shared/types'
+import type { ApkInfo, Material, StockInfo } from '../../../shared/types'
 import { errorText, formatSize } from '../format'
+import { InfoDot } from '../InfoDot'
 
 const USER_DEBLOAT = 'user-debloat'
 const USER_PROPS = 'user-props'
@@ -35,6 +36,8 @@ function summary(op: Operation): string {
       return `mods/${op.params.mod}`
     case 'spec-card':
       return `${op.params.entries.length} region entries`
+    case 'app-replace':
+      return `${op.params.target} <- external APK`
     case 'media':
       return [
         op.params.bootanimation && `boot animation (${op.params.bootanimation.kind})`,
@@ -51,11 +54,13 @@ function summary(op: Operation): string {
 export function RecipeTab({
   projectPath,
   stock,
+  apks,
   pendingDebloat,
   onDebloatConsumed
 }: {
   projectPath: string
   stock: StockInfo
+  apks: ApkInfo[]
   pendingDebloat: string[]
   onDebloatConsumed: () => void
 }): React.JSX.Element {
@@ -402,6 +407,15 @@ export function RecipeTab({
           </label>
         )}
       </div>
+
+      <h2>Replace an app with an external APK</h2>
+      <AppReplace
+        apks={apks}
+        materials={materials.filter((m) => m.kind === 'app')}
+        ops={ops.filter((o) => o.type === 'app-replace')}
+        onAdd={(op) => set([...ops, op])}
+        onRemove={(id) => remove(id)}
+      />
 
       <h2>GApps from MindTheGapps</h2>
       <MindTheGapps
@@ -1137,6 +1151,150 @@ function MindTheGapps({
           </button>
         </>
       )}
+    </div>
+  )
+}
+
+type ReplaceOp = Extract<Operation, { type: 'app-replace' }>
+
+function AppReplace({
+  apks,
+  materials,
+  ops,
+  onAdd,
+  onRemove
+}: {
+  apks: ApkInfo[]
+  materials: Material[]
+  ops: Operation[]
+  onAdd: (op: ReplaceOp) => void
+  onRemove: (id: string) => void
+}): React.JSX.Element {
+  const [filter, setFilter] = useState('')
+  const [target, setTarget] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const replaceable = useMemo(
+    () => apks.filter((a) => a.size > 0 && !a.error && a.packageName),
+    [apks]
+  )
+  const shown = useMemo(() => {
+    const f = filter.toLowerCase()
+    return replaceable
+      .filter(
+        (a) =>
+          !f ||
+          (a.packageName ?? '').toLowerCase().includes(f) ||
+          `${a.partition}/${a.path}`.toLowerCase().includes(f)
+      )
+      .slice(0, 200)
+  }, [replaceable, filter])
+  const targetApk = replaceable.find((a) => `${a.partition}/${a.path}` === target)
+
+  const add = async (apkPath: string, sha256: string): Promise<void> => {
+    if (!target) {
+      setError('Choose the app in the ROM to replace first.')
+      return
+    }
+    onAdd({
+      id: `app-replace-${target.replace(/[^a-z0-9]+/gi, '-')}`,
+      type: 'app-replace',
+      enabled: true,
+      params: { apk: apkPath, sha256, target }
+    })
+    setError(null)
+  }
+
+  return (
+    <div className="panel" data-testid="appreplace-panel">
+      <p className="sub" style={{ margin: '0 0 8px' }}>
+        Swap an app in the ROM for an external APK, like a modded launcher or SystemUI. The
+        replacement keeps its own signature.{' '}
+        <InfoDot title="What replacing a system app does">
+          <p>
+            The APK is written over the app&apos;s file in the ROM, keeping the original&apos;s
+            owner, mode and SELinux label. Stale compiled code (oat/odex/vdex) and stock split APKs
+            are removed so the new code runs.
+          </p>
+          <p>
+            Android does not verify APK signatures on system partitions, so a differently signed APK
+            loads, but it can no longer be updated from the store or OTA. If the original app shares
+            a user id (sharedUserId), the replacement must use the same one or the device can fail
+            to boot; HyperKitchen refuses a mismatch.
+          </p>
+          <p>
+            Add APKs to the Materials library (Settings) first, then pick them here. For a whole app
+            from another unpacked ROM, use &quot;Import from a reference ROM&quot; instead.
+          </p>
+        </InfoDot>
+      </p>
+      {ops.map((o) =>
+        o.type === 'app-replace' ? (
+          <p className="mono" key={o.id} data-testid={`appreplace-${o.id}`}>
+            {o.params.target} ← {o.params.apk.split('/').pop()}{' '}
+            <button onClick={() => onRemove(o.id)}>Remove</button>
+          </p>
+        ) : null
+      )}
+      <div className="row" style={{ marginBottom: 6 }}>
+        <input
+          type="text"
+          placeholder="Filter ROM apps by package or path"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+        <select
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          data-testid="appreplace-target"
+          style={{ maxWidth: 460 }}
+        >
+          <option value="">Choose the app in the ROM to replace ({shown.length})</option>
+          {shown.map((a) => (
+            <option key={`${a.partition}/${a.path}`} value={`${a.partition}/${a.path}`}>
+              {a.packageName} ({a.partition}/{a.path})
+            </option>
+          ))}
+        </select>
+      </div>
+      {targetApk?.sharedUserId && (
+        <p className="sub" style={{ margin: '0 0 6px' }}>
+          This app uses sharedUserId <span className="mono">{targetApk.sharedUserId}</span>; the
+          replacement must declare the same one.
+        </p>
+      )}
+      {materials.length === 0 ? (
+        <p className="sub">
+          No APKs in the Materials library yet. Add one in Settings → Materials library → Add app
+          APK.
+        </p>
+      ) : (
+        <table data-testid="appreplace-library">
+          <tbody>
+            {materials.map((m) => (
+              <tr key={m.id}>
+                <td>
+                  {m.label}
+                  {m.meta && (
+                    <div className="sub">
+                      {m.meta.package}
+                      {m.meta.sharedUserId ? ` · uid ${m.meta.sharedUserId}` : ''}
+                    </div>
+                  )}
+                </td>
+                <td>
+                  <button
+                    disabled={!target || !m.sha256}
+                    onClick={() => void add(m.path, m.sha256 as string)}
+                  >
+                    Use for the selected app
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {error && <p className="error-text">{error}</p>}
     </div>
   )
 }

@@ -110,6 +110,18 @@ export const OperationSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     id: z.string().min(1),
+    type: z.literal('app-replace'),
+    enabled: z.boolean().default(true),
+    params: z.object({
+      /** External APK on the host (a modded launcher, SystemUI, etc.). */
+      apk: HostFile,
+      sha256: Sha256,
+      /** Existing .apk path in the ROM to replace. */
+      target: TreePath
+    })
+  }),
+  z.object({
+    id: z.string().min(1),
     type: z.literal('media'),
     enabled: z.boolean().default(true),
     params: z

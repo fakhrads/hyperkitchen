@@ -9,7 +9,10 @@ import { isAbsolute, join } from 'node:path'
 import { z } from 'zod'
 import type { Material } from '../shared/types'
 import { hashFile } from '../worker/fsutil'
+import { readManifest } from '../worker/formats/axml'
 import { imageInfo } from '../worker/formats/image'
+import { readSigner } from '../worker/formats/apksig'
+import { ZipFile } from '../worker/formats/zip'
 import { inspectGappsZip } from '../worker/recipe/gapps'
 import type { SettingsStore } from './settings'
 
@@ -53,6 +56,28 @@ async function describe(kind: Material['kind'], path: string, label: string): Pr
       label: base.label || path.split('/').pop() || 'image',
       sha256: await hashFile(path, signal()),
       meta: { type: info.type, size: `${info.width}x${info.height}` }
+    }
+  }
+  if (kind === 'app') {
+    const z = await ZipFile.open(path)
+    try {
+      const m = await z.read('AndroidManifest.xml')
+      const info = m ? readManifest(m) : null
+      if (!info?.packageName) throw new Error(`${path}: not a valid APK`)
+      const signer = await readSigner(z).catch(() => ({ certSha256: null }))
+      return {
+        ...base,
+        label: base.label || `${info.packageName} ${info.versionName ?? ''}`.trim(),
+        sha256: await hashFile(path, signal()),
+        meta: {
+          package: info.packageName,
+          version: info.versionName ?? '',
+          sharedUserId: info.sharedUserId ?? '',
+          signer: signer.certSha256 ? signer.certSha256.slice(0, 12) : ''
+        }
+      }
+    } finally {
+      await z.close()
     }
   }
   // reference-rom: an unpacked HyperKitchen project folder.

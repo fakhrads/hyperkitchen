@@ -134,6 +134,10 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   that you run. A re-signed app gets no store or OTA updates and cannot replace
   a Xiaomi-signed system app that is still in the ROM.
 
+- **App replacer**: swap an app in the ROM for an external APK (a modded
+  launcher, SystemUI, etc.) from the materials library. The replacement keeps
+  its own signature and the original's file metadata; stale compiled code and
+  split APKs are removed; a sharedUserId mismatch is refused.
 - **Materials library**: register a GApps zip, a reference ROM or an image once
   (in Settings); recipes pick it from a dropdown instead of browsing each time.
   Files stay on disk, referenced by path and hash; nothing is bundled or
