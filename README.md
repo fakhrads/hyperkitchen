@@ -143,7 +143,9 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   Files stay on disk, referenced by path and hash; nothing is bundled or
   downloaded.
 - **About phone spec card**: a form that writes product/etc/device_info.json
-  (CPU, battery, camera, screen) per region; stock CN has no such file.
+  (CPU, battery, camera, screen) per region; stock CN has no such file, so the
+  card is empty until filled. Defaults can be loaded from a reference ROM in the
+  materials library (e.g. PureCN, which ships the real values).
 - **Recipe editor**: structured sections per change, an operations table with
   enable, remove and reorder, and a raw JSON editor (validated) for the whole
   recipe.

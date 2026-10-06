@@ -42,6 +42,7 @@ const api: HkApi = {
     catalog: () => ipcRenderer.invoke(IPC.recipeCatalog),
     inspectGapps: (z) => ipcRenderer.invoke(IPC.gappsInspect, z),
     inspectMedia: (p, f) => ipcRenderer.invoke(IPC.mediaInspect, p, f),
+    specFromReference: (ref) => ipcRenderer.invoke(IPC.specFromReference, ref),
     export: (p, d) => ipcRenderer.invoke(IPC.recipeExport, p, d),
     import: (p, srcc) => ipcRenderer.invoke(IPC.recipeImport, p, srcc)
   },

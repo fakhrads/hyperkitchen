@@ -283,6 +283,7 @@ export function RecipeTab({
         projectPath={projectPath}
         media={ops.find((o) => o.id === MEDIA_OP)}
         specCard={ops.find((o) => o.id === SPEC_CARD_OP)}
+        refMaterials={materials.filter((m) => m.kind === 'reference-rom')}
         onChange={(add, removeIds) =>
           set([
             ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
@@ -694,6 +695,7 @@ function Branding({
   patch,
   media,
   specCard,
+  refMaterials,
   onChange
 }: {
   projectPath: string
@@ -701,6 +703,7 @@ function Branding({
   patch: Operation | undefined
   media: Operation | undefined
   specCard: Operation | undefined
+  refMaterials: Material[]
   onChange: (add: Operation[], removeIds: string[]) => void
 }): React.JSX.Element {
   const mediaParams = media?.type === 'media' ? media.params : {}
@@ -806,6 +809,7 @@ function Branding({
       />
       <SpecCard
         op={specCard}
+        refMaterials={refMaterials}
         onChange={(op) => (op ? onChange([op], []) : onChange([], [SPEC_CARD_OP]))}
       />
       <p className="sub" style={{ margin: '8px 0 0' }}>
@@ -837,12 +841,28 @@ function emptyEntry(): SpecEntry {
 
 function SpecCard({
   op,
+  refMaterials,
   onChange
 }: {
   op: Operation | undefined
+  refMaterials: Material[]
   onChange: (op: SpecOp | null) => void
 }): React.JSX.Element {
   const entries = op?.type === 'spec-card' ? op.params.entries : []
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const loadFrom = async (refPath: string): Promise<void> => {
+    setLoadError(null)
+    try {
+      const got = await window.hk.recipe.specFromReference(refPath)
+      if (!got.length) {
+        setLoadError('That ROM has no spec card entries.')
+        return
+      }
+      commit(got as SpecEntry[])
+    } catch (e) {
+      setLoadError(errorText(e))
+    }
+  }
   const commit = (next: SpecEntry[]): void => {
     if (!next.length) return onChange(null)
     onChange({ id: SPEC_CARD_OP, type: 'spec-card', enabled: true, params: { entries: next } })
@@ -867,9 +887,25 @@ function SpecCard({
       <div className="row">
         <strong>About phone spec card</strong>
         <span className="sub" style={{ margin: 0 }}>
-          Writes product/etc/device_info.json (CPU, battery, camera, screen). Stock CN has none.
+          Writes product/etc/device_info.json (CPU, battery, camera, screen). Stock CN has none, so
+          the card is empty until you fill it.
         </span>
+        {refMaterials.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => e.target.value && void loadFrom(e.target.value)}
+            data-testid="speccard-load-ref"
+          >
+            <option value="">Load defaults from a reference ROM…</option>
+            {refMaterials.map((m) => (
+              <option key={m.id} value={m.path}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
+      {loadError && <p className="error-text">{loadError}</p>}
       {entries.map((e, i) => (
         <div className="panel" key={i} style={{ margin: '6px 0' }}>
           <div className="row" style={{ marginBottom: 6 }}>

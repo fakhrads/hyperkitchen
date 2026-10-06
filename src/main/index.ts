@@ -33,7 +33,7 @@ import {
   type ModJobKind
 } from './appmod'
 import { createProject, listProjects, openProject } from './projects'
-import { addMaterial, listMaterials, removeMaterial } from './materials'
+import { addMaterial, listMaterials, readSpecCardFrom, removeMaterial } from './materials'
 import { SettingsPatchSchema, SettingsStore } from './settings'
 import {
   buildDir,
@@ -243,6 +243,9 @@ function registerIpc(): void {
       description: s.description,
       targets: s.targets.map((t) => t.path)
     }))
+  )
+  ipcMain.handle(IPC.specFromReference, (_e, ref: unknown) =>
+    readSpecCardFrom(z.string().min(1).parse(ref))
   )
   ipcMain.handle(IPC.mediaInspect, async (_e, projectPath: unknown, filePath: unknown) => {
     const proj = await openProject(z.string().min(1).parse(projectPath))

@@ -113,3 +113,27 @@ export async function removeMaterial(settings: SettingsStore, id: string): Promi
   const current = (await settings.get()).materials
   await settings.update({ materials: current.filter((m) => m.id !== z.string().parse(id)) })
 }
+
+/** Spec card entries read from a reference ROM's product/etc/device_info.json. */
+export async function readSpecCardFrom(
+  refProjectPath: string
+): Promise<
+  Array<{ hwc: string | string[]; basic: Record<string, string>; camera: Record<string, string> }>
+> {
+  const file = join(
+    z.string().min(1).parse(refProjectPath),
+    'stock',
+    'fs',
+    'product',
+    'etc',
+    'device_info.json'
+  )
+  if (!existsSync(file)) throw new Error('that ROM has no product/etc/device_info.json')
+  const EntrySchema = z.object({
+    hwc: z.union([z.string(), z.array(z.string())]),
+    basic: z.record(z.string(), z.string()).default({}),
+    camera: z.record(z.string(), z.string()).default({})
+  })
+  const parsed = z.array(EntrySchema).parse(JSON.parse(await readFile(file, 'utf8')))
+  return parsed.map((e) => ({ hwc: e.hwc, basic: e.basic, camera: e.camera }))
+}

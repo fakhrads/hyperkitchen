@@ -102,6 +102,7 @@ export const IPC = {
   buildsReveal: 'builds:reveal',
   gappsInspect: 'gapps:inspect',
   mediaInspect: 'media:inspect',
+  specFromReference: 'recipe:spec-from-reference',
   modsList: 'mods:list',
   modsListDir: 'mods:list-dir',
   modsRead: 'mods:read',
@@ -169,6 +170,14 @@ export interface HkApi {
     import(projectPath: string, srcPath: string): Promise<Recipe>
     /** Read an image or bootanimation.zip chosen for the media operation. */
     inspectMedia(projectPath: string, filePath: string): Promise<MediaFileInfo>
+    /** Read the spec card (device_info.json) from a reference ROM project folder. */
+    specFromReference(refProjectPath: string): Promise<
+      Array<{
+        hwc: string | string[]
+        basic: Record<string, string>
+        camera: Record<string, string>
+      }>
+    >
   }
   builds: {
     list(projectPath: string): Promise<BuildInfo[]>
