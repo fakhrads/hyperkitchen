@@ -33,6 +33,8 @@ function summary(op: Operation): string {
       return op.params.zip
     case 'app-mod':
       return `mods/${op.params.mod}`
+    case 'spec-card':
+      return `${op.params.entries.length} region entries`
     case 'media':
       return [
         op.params.bootanimation && `boot animation (${op.params.bootanimation.kind})`,
@@ -269,6 +271,7 @@ export function RecipeTab({
         patch={patchOn(BRANDING_PATCH)}
         projectPath={projectPath}
         media={ops.find((o) => o.id === MEDIA_OP)}
+        specCard={ops.find((o) => o.id === SPEC_CARD_OP)}
         onChange={(add, removeIds) =>
           set([
             ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
@@ -653,12 +656,14 @@ function Branding({
   prop,
   patch,
   media,
+  specCard,
   onChange
 }: {
   projectPath: string
   prop: Operation | undefined
   patch: Operation | undefined
   media: Operation | undefined
+  specCard: Operation | undefined
   onChange: (add: Operation[], removeIds: string[]) => void
 }): React.JSX.Element {
   const mediaParams = media?.type === 'media' ? media.params : {}
@@ -762,10 +767,128 @@ function Branding({
         onPick={(info) => setMedia('lockWallpaper', { file: info.path, sha256: info.sha256 })}
         onRemove={() => setMedia('lockWallpaper', undefined)}
       />
+      <SpecCard
+        op={specCard}
+        onChange={(op) => (op ? onChange([op], []) : onChange([], [SPEC_CARD_OP]))}
+      />
       <p className="sub" style={{ margin: '8px 0 0' }}>
         A theme you apply later on the phone can override these; the files here are the ROM
         defaults.
       </p>
+    </div>
+  )
+}
+
+const SPEC_CARD_OP = 'spec-card'
+type SpecOp = Extract<Operation, { type: 'spec-card' }>
+type SpecEntry = SpecOp['params']['entries'][number]
+const BASIC_FIELDS: Array<[string, string]> = [
+  ['cpu', 'Processor'],
+  ['battery', 'Battery'],
+  ['screen', 'Screen'],
+  ['resolution', 'Resolution'],
+  ['camera', 'Camera (summary)']
+]
+const CAMERA_FIELDS: Array<[string, string]> = [
+  ['rear_camera', 'Rear camera'],
+  ['front_camera', 'Front camera']
+]
+
+function emptyEntry(): SpecEntry {
+  return { hwc: 'GL', basic: {}, camera: {} }
+}
+
+function SpecCard({
+  op,
+  onChange
+}: {
+  op: Operation | undefined
+  onChange: (op: SpecOp | null) => void
+}): React.JSX.Element {
+  const entries = op?.type === 'spec-card' ? op.params.entries : []
+  const commit = (next: SpecEntry[]): void => {
+    if (!next.length) return onChange(null)
+    onChange({ id: SPEC_CARD_OP, type: 'spec-card', enabled: true, params: { entries: next } })
+  }
+  const setField = (i: number, group: 'basic' | 'camera', key: string, value: string): void => {
+    const next = entries.map((e, k) =>
+      k === i ? { ...e, [group]: { ...e[group], [key]: value } } : e
+    )
+    commit(next)
+  }
+  const setHwc = (i: number, value: string): void => {
+    const hwc = value.includes(',')
+      ? value
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean)
+      : value.trim()
+    commit(entries.map((e, k) => (k === i ? { ...e, hwc } : e)))
+  }
+  return (
+    <div style={{ marginTop: 12 }} data-testid="speccard-panel">
+      <div className="row">
+        <strong>About phone spec card</strong>
+        <span className="sub" style={{ margin: 0 }}>
+          Writes product/etc/device_info.json (CPU, battery, camera, screen). Stock CN has none.
+        </span>
+      </div>
+      {entries.map((e, i) => (
+        <div className="panel" key={i} style={{ margin: '6px 0' }}>
+          <div className="row" style={{ marginBottom: 6 }}>
+            <label>
+              Region(s){' '}
+              <input
+                type="text"
+                value={Array.isArray(e.hwc) ? e.hwc.join(', ') : e.hwc}
+                onChange={(ev) => setHwc(i, ev.target.value)}
+                placeholder="GL, or CN, IN"
+                style={{ minWidth: 0, width: 140 }}
+                data-testid={`speccard-hwc-${i}`}
+              />
+            </label>
+            <span className="sub" style={{ margin: 0 }}>
+              GL = global; CN/IN = China/India. Matches the device&apos;s region.
+            </span>
+            <span style={{ flex: 1 }} />
+            <button onClick={() => commit(entries.filter((_, k) => k !== i))}>Remove entry</button>
+          </div>
+          <table>
+            <tbody>
+              {BASIC_FIELDS.map(([key, label]) => (
+                <tr key={key}>
+                  <td style={{ width: 160 }}>{label}</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={e.basic[key] ?? ''}
+                      onChange={(ev) => setField(i, 'basic', key, ev.target.value)}
+                      style={{ width: '100%' }}
+                      data-testid={`speccard-basic-${key}-${i}`}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {CAMERA_FIELDS.map(([key, label]) => (
+                <tr key={key}>
+                  <td>{label}</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={e.camera[key] ?? ''}
+                      onChange={(ev) => setField(i, 'camera', key, ev.target.value)}
+                      style={{ width: '100%' }}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+      <button onClick={() => commit([...entries, emptyEntry()])} data-testid="speccard-add">
+        Add a region entry
+      </button>
     </div>
   )
 }

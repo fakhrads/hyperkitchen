@@ -5,11 +5,17 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { RecipeSchema } from '../../src/shared/recipe'
+import { OperationSchema, RecipeSchema } from '../../src/shared/recipe'
 import { readSigner } from '../../src/worker/formats/apksig'
 import { ZipFile } from '../../src/worker/formats/zip'
 import { alignedExtra, rewriteZip } from '../../src/worker/formats/zipwrite'
-import { apkRemovalTarget, dropLines, editProps } from '../../src/worker/recipe/ops'
+import {
+  apkRemovalTarget,
+  dropLines,
+  editProps,
+  FILE_OPS,
+  newReport
+} from '../../src/worker/recipe/ops'
 import { applyRule, artifactsOf, devicePath, normalizeSmali } from '../../src/worker/recipe/patcher'
 import { PATCH_SETS } from '../../src/worker/recipe/patchsets'
 import { escapeContextPath, unescapeContextPath, WorkTree } from '../../src/worker/recipe/tree'
@@ -444,5 +450,51 @@ describe('PureCN presets', () => {
     expect(r.operations.some((o) => o.type === 'disable-encryption')).toBe(false)
     const removed = r.operations.flatMap((o) => (o.type === 'remove-paths' ? o.params.paths : []))
     expect(removed).toContain('product/etc/permissions/privapp-permissions-gms-cn-product.xml')
+  })
+})
+
+describe('spec-card operation', () => {
+  it('writes device_info.json, dropping empty values, and validates the schema', async () => {
+    const root = await makeTree()
+    const tree = await WorkTree.open(root, ['product'])
+    const op = OperationSchema.parse({
+      id: 'sc',
+      type: 'spec-card',
+      params: {
+        entries: [
+          {
+            hwc: ['CN', 'IN'],
+            basic: { cpu: 'SD 8s Gen 4', battery: '7550mAh', screen: '', resolution: '2772x1280' },
+            camera: { rear_camera: '50MP+8MP', front_camera: '' }
+          },
+          { hwc: 'GL', basic: { cpu: 'SD 8s Gen 4' }, camera: {} }
+        ]
+      }
+    })
+    const r = newReport(op)
+    await FILE_OPS['spec-card']!({ tree, apks: [], log: () => {} }, op, r)
+    await tree.save()
+    expect(r.added).toContain('product/etc/device_info.json')
+    const json = JSON.parse(readFileSync(join(root, 'product/etc/device_info.json'), 'utf8'))
+    expect(json).toEqual([
+      {
+        hwc: ['CN', 'IN'],
+        basic: { cpu: 'SD 8s Gen 4', battery: '7550mAh', resolution: '2772x1280' },
+        camera: { rear_camera: '50MP+8MP' }
+      },
+      { hwc: 'GL', basic: { cpu: 'SD 8s Gen 4' } }
+    ])
+    // The new file inherits product/etc's owner/mode and SELinux label.
+    const fsConfig = readFileSync(join(root, 'config/product_fs_config'), 'utf8')
+    expect(fsConfig).toContain('product/etc/device_info.json 0 0 0644')
+    const ctx = readFileSync(join(root, 'config/product_file_contexts'), 'utf8')
+    expect(ctx).toContain('/product/etc/device_info\\.json u:object_r:system_file:s0')
+
+    // Running again replaces the file (modified, not added twice).
+    const tree2 = await WorkTree.open(root, ['product'])
+    const r2 = newReport(op)
+    await FILE_OPS['spec-card']!({ tree: tree2, apks: [], log: () => {} }, op, r2)
+    expect(r2.modified).toContain('product/etc/device_info.json')
+    expect(r2.added).not.toContain('product/etc/device_info.json')
   })
 })

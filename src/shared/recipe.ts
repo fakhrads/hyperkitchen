@@ -92,6 +92,24 @@ export const OperationSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     id: z.string().min(1),
+    type: z.literal('spec-card'),
+    enabled: z.boolean().default(true),
+    params: z.object({
+      /** One entry per region code (hwc); writes product/etc/device_info.json. */
+      entries: z
+        .array(
+          z.object({
+            /** Region code(s) this entry applies to, e.g. "GL" or ["CN", "IN"]. */
+            hwc: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]),
+            basic: z.record(z.string().min(1), z.string()).default({}),
+            camera: z.record(z.string().min(1), z.string()).default({})
+          })
+        )
+        .min(1)
+    })
+  }),
+  z.object({
+    id: z.string().min(1),
     type: z.literal('media'),
     enabled: z.boolean().default(true),
     params: z

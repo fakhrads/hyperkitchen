@@ -290,3 +290,36 @@ async function importFromRom(
 }
 
 FILE_OPS['import-from-rom'] = importFromRom as OpRunner
+
+const DEVICE_INFO = 'product/etc/device_info.json'
+
+/**
+ * Write product/etc/device_info.json, the source of the About phone spec card (CPU, battery,
+ * camera, screen). HyperOS CN stock has no such file; PureCN adds one. Empty values in `basic`
+ * or `camera` are dropped so the card does not show blank rows.
+ */
+async function specCard(
+  ctx: OpContext,
+  op: Extract<Operation, { type: 'spec-card' }>,
+  r: OperationReport
+): Promise<void> {
+  const clean = (m: Record<string, string>): Record<string, string> =>
+    Object.fromEntries(Object.entries(m).filter(([, v]) => v.trim() !== ''))
+  const json = op.params.entries.map((e) => {
+    const out: Record<string, unknown> = { hwc: e.hwc }
+    const basic = clean(e.basic)
+    const camera = clean(e.camera)
+    if (Object.keys(basic).length) out.basic = basic
+    if (Object.keys(camera).length) out.camera = camera
+    return out
+  })
+  const data = Buffer.from(JSON.stringify(json, null, 4) + '\n')
+  if (ctx.tree.exists(DEVICE_INFO)) {
+    await ctx.tree.writeExisting(DEVICE_INFO, data)
+    r.modified.push(DEVICE_INFO)
+  } else {
+    await ctx.tree.addFile(DEVICE_INFO, data, { uid: 0, gid: 0, mode: 0o644 })
+    r.added.push(DEVICE_INFO)
+  }
+}
+FILE_OPS['spec-card'] = specCard as OpRunner

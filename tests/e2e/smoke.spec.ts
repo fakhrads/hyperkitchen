@@ -221,3 +221,12 @@ test('edits the recipe as JSON and reorders operations', async () => {
   await page.getByTestId('recipe-json-apply').click()
   await expect(page.getByText(/not valid JSON/)).toBeVisible()
 })
+
+test('adds an About phone spec card entry through the form', async () => {
+  await page.getByTestId('tab-recipe').click()
+  await page.getByTestId('speccard-add').click()
+  await page.getByTestId('speccard-hwc-0').fill('GL')
+  await page.getByTestId('speccard-basic-cpu-0').fill('Snapdragon 8s Gen 4')
+  await expect(page.getByTestId('recipe-ops')).toContainText('spec-card')
+  await expect(page.getByTestId('recipe-ops')).toContainText('1 region entries')
+})

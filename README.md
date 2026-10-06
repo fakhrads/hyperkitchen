@@ -134,6 +134,8 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   that you run. A re-signed app gets no store or OTA updates and cannot replace
   a Xiaomi-signed system app that is still in the ROM.
 
+- **About phone spec card**: a form that writes product/etc/device_info.json
+  (CPU, battery, camera, screen) per region; stock CN has no such file.
 - **Recipe editor**: structured sections per change, an operations table with
   enable, remove and reorder, and a raw JSON editor (validated) for the whole
   recipe.
