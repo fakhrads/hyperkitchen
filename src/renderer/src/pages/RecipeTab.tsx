@@ -967,6 +967,22 @@ function SpecCard({
           </table>
         </div>
       ))}
+      {entries.length === 0 && refMaterials.length > 0 && (
+        <p className="sub" style={{ margin: '0 0 8px' }}>
+          Empty on a CN base. Load the real values from a reference ROM:{' '}
+          {refMaterials.map((m) => (
+            <button
+              key={m.id}
+              className="primary"
+              style={{ marginRight: 6 }}
+              onClick={() => void loadFrom(m.path)}
+              data-testid={`speccard-default-${m.id}`}
+            >
+              Load from {m.label}
+            </button>
+          ))}
+        </p>
+      )}
       <button onClick={() => commit([...entries, emptyEntry()])} data-testid="speccard-add">
         Add a region entry
       </button>
