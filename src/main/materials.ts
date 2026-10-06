@@ -73,7 +73,9 @@ async function describe(kind: Material['kind'], path: string, label: string): Pr
           package: info.packageName,
           version: info.versionName ?? '',
           sharedUserId: info.sharedUserId ?? '',
-          signer: signer.certSha256 ? signer.certSha256.slice(0, 12) : ''
+          signer: signer.certSha256 ? signer.certSha256.slice(0, 12) : '',
+          minSdk: info.minSdk != null ? String(info.minSdk) : '',
+          targetSdk: info.targetSdk != null ? String(info.targetSdk) : ''
         }
       }
     } finally {

@@ -23,19 +23,50 @@ afterAll(async () => {
   await rm(tmp, { recursive: true, force: true })
 })
 
-function apk(pkg: string, sharedUserId?: string): Buffer {
+const MIN_SDK = 0x0101020c
+
+function apk(pkg: string, opts: { sharedUserId?: string; minSdk?: number } = {}): Buffer {
   const attrs: Array<{ ns?: string; name: string; resId?: number; str?: string }> = [
     { name: 'package', str: pkg }
   ]
-  if (sharedUserId)
-    attrs.push({ ns: ANDROID, name: 'sharedUserId', resId: SHARED_UID, str: sharedUserId })
-  return zip([['AndroidManifest.xml', axml([{ name: 'manifest', attrs, children: 0 }])]])
+  if (opts.sharedUserId)
+    attrs.push({ ns: ANDROID, name: 'sharedUserId', resId: SHARED_UID, str: opts.sharedUserId })
+  const els: Parameters<typeof axml>[0] = [
+    { name: 'manifest', attrs, children: opts.minSdk != null ? 1 : 0 }
+  ]
+  if (opts.minSdk != null)
+    els.push({
+      name: 'uses-sdk',
+      attrs: [{ ns: ANDROID, name: 'minSdkVersion', resId: MIN_SDK, int: opts.minSdk }],
+      children: 0
+    })
+  return zip([['AndroidManifest.xml', axml(els)]])
 }
 
 async function makeTree(originalApk: Buffer): Promise<string> {
   const root = join(tmp, `t${Math.random().toString(36).slice(2)}`)
   await mkdir(join(root, 'config'), { recursive: true })
   await mkdir(join(root, 'product/priv-app/App/oat/arm64'), { recursive: true })
+  await mkdir(join(root, 'system/system'), { recursive: true })
+  await writeFile(join(root, 'system/system/build.prop'), 'ro.build.version.sdk=30\n')
+  await writeFile(
+    join(root, 'config/system_fs_config'),
+    [
+      '/ 0 0 0755',
+      'system 0 0 0755',
+      'system/system 0 0 0755',
+      'system/system/build.prop 0 0 0644',
+      ''
+    ].join('\n')
+  )
+  await writeFile(
+    join(root, 'config/system_file_contexts'),
+    [
+      '/ u:object_r:system_file:s0',
+      '/system/system/build\\.prop u:object_r:system_file:s0',
+      ''
+    ].join('\n')
+  )
   await writeFile(join(root, 'product/priv-app/App/App.apk'), originalApk)
   await writeFile(join(root, 'product/priv-app/App/oat/arm64/App.odex'), 'stale')
   await writeFile(
@@ -65,7 +96,7 @@ async function makeTree(originalApk: Buffer): Promise<string> {
 }
 
 const run = async (root: string, apkPath: string): Promise<ReturnType<typeof newReport>> => {
-  const tree = await WorkTree.open(root, ['product'])
+  const tree = await WorkTree.open(root, ['product', 'system'])
   const op = OperationSchema.parse({
     id: 'r',
     type: 'app-replace',
@@ -106,17 +137,32 @@ describe('app-replace', () => {
   })
 
   it('refuses a sharedUserId mismatch', async () => {
-    const root = await makeTree(apk('com.android.settings', 'android.uid.system'))
+    const root = await makeTree(apk('com.android.settings', { sharedUserId: 'android.uid.system' }))
     const ext = join(tmp, 'noUid.apk')
     await writeFile(ext, apk('com.other'))
     await expect(run(root, ext)).rejects.toThrow(/sharedUserId android\.uid\.system/)
+  })
+
+  it('refuses a replacement whose minSdk exceeds the base API level', async () => {
+    const root = await makeTree(apk('com.x'))
+    const ext = join(tmp, 'tooNew.apk')
+    await writeFile(ext, apk('com.x', { minSdk: 31 })) // base build.prop says sdk=30
+    await expect(run(root, ext)).rejects.toThrow(/API 31.*API 30|minSdkVersion/)
+  })
+
+  it('allows a replacement whose minSdk is within the base API level', async () => {
+    const root = await makeTree(apk('com.x'))
+    const ext = join(tmp, 'ok.apk')
+    await writeFile(ext, apk('com.x', { minSdk: 29 }))
+    const r = await run(root, ext)
+    expect(r.modified).toContain('product/priv-app/App/App.apk')
   })
 
   it('refuses a changed sha256 and a non-apk target', async () => {
     const root = await makeTree(apk('com.x'))
     const ext = join(tmp, 'x.apk')
     await writeFile(ext, apk('com.x'))
-    const tree = await WorkTree.open(root, ['product'])
+    const tree = await WorkTree.open(root, ['product', 'system'])
     const bad = OperationSchema.parse({
       id: 'r',
       type: 'app-replace',

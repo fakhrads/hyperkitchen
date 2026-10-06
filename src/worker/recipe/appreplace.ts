@@ -19,15 +19,33 @@ import type { Operation, OperationReport } from '../../shared/recipe'
 import { readManifest } from '../formats/axml'
 import { ZipFile } from '../formats/zip'
 import { readSigner } from '../formats/apksig'
+import { parseProps } from '../formats/buildprop'
 import type { OpContext } from './ops'
 import { artifactsOf } from './patcher'
 
 const sha = (b: Buffer): string => createHash('sha256').update(b).digest('hex')
 
+/** The base ROM's API level from system/system/build.prop in the work tree, or null. */
+async function baseSdkOf(ctx: OpContext): Promise<number | null> {
+  const f = 'system/system/build.prop'
+  try {
+    if (!ctx.tree.exists(f)) return null
+    const prop = parseProps((await ctx.tree.read(f)).toString('utf8')).find(
+      (p) => p.key === 'ro.build.version.sdk'
+    )
+    const n = prop ? Number(prop.value) : NaN
+    return Number.isFinite(n) ? n : null
+  } catch {
+    // system partition not loaded in this tree; skip the check.
+    return null
+  }
+}
+
 interface ApkFacts {
   packageName: string | null
   sharedUserId: string | null
   signer: string | null
+  minSdk: number | null
 }
 
 async function apkFacts(file: string): Promise<ApkFacts> {
@@ -39,7 +57,8 @@ async function apkFacts(file: string): Promise<ApkFacts> {
     return {
       packageName: info?.packageName ?? null,
       sharedUserId: info?.sharedUserId ?? null,
-      signer: signer.certSha256
+      signer: signer.certSha256,
+      minSdk: info?.minSdk ?? null
     }
   } finally {
     await z.close()
@@ -74,6 +93,15 @@ export async function applyAppReplace(
   const incoming = await apkFacts(apk)
   if (!incoming.packageName) throw new Error(`${apk}: not a valid APK (no package name)`)
   const original = await apkFacts(ctx.tree.abs(target))
+
+  // Compatibility: the replacement's minSdkVersion must not exceed the base ROM's API level,
+  // or it will not install or run.
+  const baseSdk = await baseSdkOf(ctx)
+  if (incoming.minSdk !== null && baseSdk !== null && incoming.minSdk > baseSdk) {
+    throw new Error(
+      `${incoming.packageName} needs Android API ${incoming.minSdk} (minSdkVersion); this ROM is API ${baseSdk}. The app would not run. Use a build made for this base.`
+    )
+  }
 
   if (original.sharedUserId && original.sharedUserId !== incoming.sharedUserId) {
     throw new Error(

@@ -112,6 +112,13 @@ export function RecipeTab({
   const dirty = useMemo(() => recipe !== null && JSON.stringify(recipe) !== saved, [recipe, saved])
   if (!recipe) return <div className="empty">{error ?? 'Loading recipe…'}</div>
 
+  const baseSdk = (() => {
+    const p =
+      stock.props.find((x) => x.partition === 'system' && x.path === 'system/build.prop')?.props ??
+      {}
+    const n = Number(p['ro.build.version.sdk'])
+    return Number.isFinite(n) ? n : null
+  })()
   const ops = recipe.operations
   const set = (next: Operation[]): void => setRecipe({ ...recipe, operations: next })
   function upsert(op: Operation): void {
@@ -412,6 +419,7 @@ export function RecipeTab({
       <h2>Replace an app with an external APK</h2>
       <AppReplace
         apks={apks}
+        baseSdk={baseSdk}
         materials={materials.filter((m) => m.kind === 'app')}
         ops={ops.filter((o) => o.type === 'app-replace')}
         onAdd={(op) => set([...ops, op])}
@@ -1195,12 +1203,14 @@ type ReplaceOp = Extract<Operation, { type: 'app-replace' }>
 
 function AppReplace({
   apks,
+  baseSdk,
   materials,
   ops,
   onAdd,
   onRemove
 }: {
   apks: ApkInfo[]
+  baseSdk: number | null
   materials: Material[]
   ops: Operation[]
   onAdd: (op: ReplaceOp) => void
@@ -1314,12 +1324,28 @@ function AppReplace({
                     <div className="sub">
                       {m.meta.package}
                       {m.meta.sharedUserId ? ` · uid ${m.meta.sharedUserId}` : ''}
+                      {m.meta.minSdk ? ` · minSdk ${m.meta.minSdk}` : ''}
+                      {m.meta.minSdk && baseSdk != null && Number(m.meta.minSdk) > baseSdk ? (
+                        <span className="error-text">
+                          {' '}
+                          needs API {m.meta.minSdk} &gt; base API {baseSdk}, will not run
+                        </span>
+                      ) : m.meta.minSdk && baseSdk != null ? (
+                        <span style={{ color: 'var(--ok)' }}> fits API {baseSdk}</span>
+                      ) : null}
                     </div>
                   )}
                 </td>
                 <td>
                   <button
-                    disabled={!target || !m.sha256}
+                    disabled={
+                      !target ||
+                      !m.sha256 ||
+                      (m.meta?.minSdk != null &&
+                        m.meta.minSdk !== '' &&
+                        baseSdk != null &&
+                        Number(m.meta.minSdk) > baseSdk)
+                    }
                     onClick={() => void add(m.path, m.sha256 as string)}
                   >
                     Use for the selected app

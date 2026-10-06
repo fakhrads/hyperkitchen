@@ -123,6 +123,8 @@ const ATTR_VERSION_CODE = 0x0101021b
 const ATTR_VERSION_NAME = 0x0101021c
 const ATTR_VERSION_CODE_MAJOR = 0x01010576
 const ATTR_SHARED_USER_ID = 0x0101000b
+const ATTR_MIN_SDK = 0x0101020c
+const ATTR_TARGET_SDK = 0x01010270
 
 export interface ManifestInfo {
   packageName: string | null
@@ -133,6 +135,9 @@ export interface ManifestInfo {
   usesLibraries: string[]
   /** Target package when this APK is a runtime resource overlay. */
   overlayTarget: string | null
+  /** uses-sdk minSdkVersion / targetSdkVersion as integers, when present. */
+  minSdk: number | null
+  targetSdk: number | null
 }
 
 /** String form of an attribute. Unresolved resource references are shown as @0x7f...... */
@@ -165,6 +170,14 @@ export function readManifest(b: Buffer): ManifestInfo {
     versionCode = hi * 2 ** 32 + lo
   }
   const overlay = els.find((e) => e.name === 'overlay' && e.depth === 1)
+  const usesSdk = els.find((e) => e.name === 'uses-sdk' && e.depth === 1)
+  const sdkInt = (resId: number, name: string): number | null => {
+    if (!usesSdk) return null
+    const a = find(usesSdk.attrs, resId, name)
+    if (!a) return null
+    const n = a.type === TYPE_STRING ? Number(a.raw) : a.data | 0
+    return Number.isFinite(n) ? n : null
+  }
   return {
     packageName: pkg ? (pkg.raw ?? null) : null,
     versionCode,
@@ -174,6 +187,8 @@ export function readManifest(b: Buffer): ManifestInfo {
       .filter((e) => e.name === 'uses-library' || e.name === 'uses-native-library')
       .map((e) => e.attrs.find((a) => a.name === 'name')?.raw ?? '')
       .filter(Boolean),
-    overlayTarget: overlay?.attrs.find((a) => a.name === 'targetPackage')?.raw ?? null
+    overlayTarget: overlay?.attrs.find((a) => a.name === 'targetPackage')?.raw ?? null,
+    minSdk: sdkInt(ATTR_MIN_SDK, 'minSdkVersion'),
+    targetSdk: sdkInt(ATTR_TARGET_SDK, 'targetSdkVersion')
   }
 }

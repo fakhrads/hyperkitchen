@@ -301,7 +301,9 @@ describe('AXML manifest reader', () => {
       versionName: '15.0.1-test',
       sharedUserId: 'android.uid.system',
       usesLibraries: ['org.apache.http.legacy'],
-      overlayTarget: null
+      overlayTarget: null,
+      minSdk: null,
+      targetSdk: null
     })
   })
 
