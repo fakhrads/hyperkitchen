@@ -38,6 +38,7 @@ import { addMaterial, listMaterials, readSpecCardFrom, removeMaterial } from './
 import { SettingsPatchSchema, SettingsStore } from './settings'
 import {
   buildDir,
+  deleteBuild,
   checkBuildParams,
   checkUnpackParams,
   listBuilds,
@@ -278,6 +279,9 @@ function registerIpc(): void {
   ipcMain.handle(IPC.buildsReveal, async (_e, p: unknown, id: unknown) => {
     shell.showItemInFolder(await buildDir(z.string().min(1).parse(p), z.string().parse(id)))
   })
+  ipcMain.handle(IPC.buildsDelete, (_e, p: unknown, id: unknown) =>
+    deleteBuild(z.string().min(1).parse(p), z.string().parse(id))
+  )
 
   const S = z.string()
   ipcMain.handle(IPC.modsList, (_e, p: unknown) => modsList(S.min(1).parse(p)))

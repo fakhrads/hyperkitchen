@@ -87,6 +87,9 @@ export function ProjectView({
     if (finished) onChanged()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished])
+  const reloadBuilds = (): void => {
+    void window.hk.builds.list(project.path).then(setBuilds)
+  }
   const shownError =
     error ?? (job?.status === 'failed' ? (job.error ?? `${job.kind} failed`) : null)
 
@@ -280,6 +283,7 @@ export function ProjectView({
               builds={builds}
               running={running}
               onStart={(v, verify, zip) => void startBuild(v, verify, zip)}
+              onReload={reloadBuilds}
             />
           )}
           {!running && tab === 'partitions' && <div style={{ marginTop: 22 }}>{chooser}</div>}
@@ -699,12 +703,14 @@ function BuildTab({
   projectPath,
   builds,
   running,
-  onStart
+  onStart,
+  onReload
 }: {
   projectPath: string
   builds: BuildInfo[]
   running: boolean
   onStart: (verity: VerityMode, verify: boolean, zip: boolean) => void
+  onReload: () => void
 }): React.JSX.Element {
   const [verity, setVerity] = useState<VerityMode>('fstab')
   const [verify, setVerify] = useState(true)
@@ -848,6 +854,17 @@ function BuildTab({
               </span>
               <button onClick={() => void window.hk.builds.reveal(projectPath, b.id)}>
                 Show in folder
+              </button>
+              <button
+                onClick={async () => {
+                  if (!window.confirm(`Delete build ${b.id}? This removes its folder for good.`))
+                    return
+                  await window.hk.builds.remove(projectPath, b.id)
+                  onReload()
+                }}
+                data-testid={`build-delete-${b.id}`}
+              >
+                Delete
               </button>
             </div>
             {b.error && <p className="error-text">{b.error}</p>}

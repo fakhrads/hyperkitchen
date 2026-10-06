@@ -231,3 +231,14 @@ test('adds an About phone spec card entry through the form', async () => {
   await expect(page.getByTestId('recipe-ops')).toContainText('spec-card')
   await expect(page.getByTestId('recipe-ops')).toContainText('1 region entries')
 })
+
+test('deletes a build from the list', async () => {
+  await page.getByTestId('tab-build').click()
+  const buildsDir = join(tmp, 'projects', 'onyx unpack', 'build')
+  const id = readdirSync(buildsDir)[0]
+  expect(existsSync(join(buildsDir, id))).toBe(true)
+  page.once('dialog', (d) => void d.accept())
+  await page.getByTestId(`build-delete-${id}`).click()
+  await expect(page.locator(`[data-testid="build-${id}"]`)).toHaveCount(0)
+  expect(existsSync(join(buildsDir, id))).toBe(false)
+})

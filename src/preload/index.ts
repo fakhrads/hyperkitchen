@@ -51,7 +51,8 @@ const api: HkApi = {
   },
   builds: {
     list: (p) => ipcRenderer.invoke(IPC.buildsList, p),
-    reveal: (p, id) => ipcRenderer.invoke(IPC.buildsReveal, p, id)
+    reveal: (p, id) => ipcRenderer.invoke(IPC.buildsReveal, p, id),
+    remove: (p, id) => ipcRenderer.invoke(IPC.buildsDelete, p, id)
   },
   mods: {
     list: (p) => ipcRenderer.invoke(IPC.modsList, p),

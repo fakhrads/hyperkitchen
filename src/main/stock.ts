@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { lstat, readdir, readFile, readlink, stat, writeFile } from 'node:fs/promises'
+import { lstat, readdir, readFile, readlink, rm, stat, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { RecipeSchema, type Recipe } from '../shared/recipe'
@@ -101,6 +101,12 @@ export async function buildDir(projectPath: string, id: string): Promise<string>
   const p = await openProject(projectPath)
   if (!/^[0-9]{8}-[0-9]{6}(-[0-9]{1,2})?$/.test(id)) throw new Error(`bad build id ${id}`)
   return assertInside(join(p.path, 'build'), join(p.path, 'build', id))
+}
+
+/** Delete one build folder. Only ever removes inside the project's build/ directory. */
+export async function deleteBuild(projectPath: string, id: string): Promise<void> {
+  const dir = await buildDir(projectPath, id)
+  await rm(dir, { recursive: true, force: true })
 }
 
 export const BuildParamsSchema = z.object({

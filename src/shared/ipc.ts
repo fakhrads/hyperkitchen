@@ -110,6 +110,7 @@ export const IPC = {
   materialsAdd: 'materials:add',
   materialsRemove: 'materials:remove',
   buildsReveal: 'builds:reveal',
+  buildsDelete: 'builds:delete',
   gappsInspect: 'gapps:inspect',
   mediaInspect: 'media:inspect',
   apkUpdateCheck: 'apk:update-check',
@@ -198,6 +199,8 @@ export interface HkApi {
     list(projectPath: string): Promise<BuildInfo[]>
     /** Show the build folder in the system file manager. */
     reveal(projectPath: string, id: string): Promise<void>
+    /** Permanently delete one build folder. */
+    remove(projectPath: string, id: string): Promise<void>
   }
   mods: {
     list(projectPath: string): Promise<ModSummary[]>
