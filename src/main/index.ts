@@ -32,6 +32,7 @@ import {
   ModIdSchema,
   type ModJobKind
 } from './appmod'
+import { checkApkUpdate } from './apkupdate'
 import { createProject, listProjects, openProject } from './projects'
 import { addMaterial, listMaterials, readSpecCardFrom, removeMaterial } from './materials'
 import { SettingsPatchSchema, SettingsStore } from './settings'
@@ -226,6 +227,9 @@ function registerIpc(): void {
     await settings.update({ recentProjects: s.recentProjects.filter((p) => p !== target) })
   })
 
+  ipcMain.handle(IPC.apkUpdateCheck, (_e, pkg: unknown, cur: unknown) =>
+    checkApkUpdate({ packageName: pkg, currentVersionName: cur })
+  )
   ipcMain.handle(IPC.stockInfo, (_e, p: unknown) => readStock(z.string().min(1).parse(p)))
   ipcMain.handle(IPC.stockInventory, (_e, p: unknown) => readInventory(z.string().min(1).parse(p)))
   ipcMain.handle(IPC.stockListDir, (_e, p: unknown, rel: unknown) =>

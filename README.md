@@ -154,6 +154,13 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   PureCN changes). Recipes export to and import from a JSON file. Every build
   copies the exact recipe it used into `build/<id>/recipe.json`.
 
+- **Base Android version** is shown for the unpacked ROM (release, API level,
+  security patch), read from the system build.prop.
+- **APK update check**: per app, an on-demand lookup against the community
+  tracker memeosupdates.com shows the latest tracked version against the one in
+  the ROM. It is unofficial, may track another region, and only reads the page.
+- The APK list is paginated.
+
 Put the projects folder on a **case-sensitive** filesystem: Android trees can
 hold names that differ only in case. On macOS, an APFS (Case-sensitive) volume
 or disk image works; exFAT is not suitable (case-insensitive, no hard links,

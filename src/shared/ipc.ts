@@ -39,6 +39,16 @@ export interface GappsZipInfo {
   units: Array<{ name: string; tree: string; bytes: number }>
 }
 
+export interface ApkUpdateResult {
+  packageName: string
+  source: string
+  url: string
+  latest: string | null
+  current: string | null
+  relation: 'newer' | 'same' | 'older' | 'unknown'
+  note?: string
+}
+
 export interface MediaFileInfo {
   path: string
   sha256: string
@@ -102,6 +112,7 @@ export const IPC = {
   buildsReveal: 'builds:reveal',
   gappsInspect: 'gapps:inspect',
   mediaInspect: 'media:inspect',
+  apkUpdateCheck: 'apk:update-check',
   specFromReference: 'recipe:spec-from-reference',
   modsList: 'mods:list',
   modsListDir: 'mods:list-dir',
@@ -150,6 +161,10 @@ export interface HkApi {
     create(name: string): Promise<ProjectSummary>
     open(path: string): Promise<ProjectSummary>
     forget(path: string): Promise<void>
+  }
+  apk: {
+    /** Best-effort check against a community tracker (memeosupdates.com); on-demand per app. */
+    updateCheck(packageName: string, currentVersionName: string | null): Promise<ApkUpdateResult>
   }
   stock: {
     info(projectPath: string): Promise<StockInfo | null>

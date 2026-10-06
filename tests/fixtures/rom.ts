@@ -48,7 +48,7 @@ export async function buildFastbootRom(dir: string, binDir: string): Promise<str
   await mkdir(join(sys, 'system', 'app', 'Test'), { recursive: true })
   await writeFile(
     join(sys, 'system', 'build.prop'),
-    'ro.build.version.incremental=TEST.1.0\nro.product.system.device=generic\n'
+    'ro.build.version.incremental=TEST.1.0\nro.build.version.release=16\nro.build.version.sdk=36\nro.build.version.security_patch=2026-07-01\nro.product.system.device=generic\n'
   )
   await writeFile(
     join(sys, 'system', 'app', 'Test', 'Test.apk'),

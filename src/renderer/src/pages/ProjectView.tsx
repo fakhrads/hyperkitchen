@@ -9,6 +9,7 @@ import type {
   StockInfo,
   VerityMode
 } from '../../../shared/types'
+import type { ApkUpdateResult } from '../../../shared/ipc'
 import { errorText, formatSize } from '../format'
 import { ProgressBar } from './Jobs'
 import { InfoDot } from '../InfoDot'
@@ -17,6 +18,23 @@ import { RecipeTab } from './RecipeTab'
 
 // Unpack or build jobs started from this window, by project path. Survives page switches.
 const projectJobs = new Map<string, string>()
+
+/** Android version of the base, read from the system build.prop already in stock.json. */
+function systemProps(stock: StockInfo): Record<string, string> {
+  return (
+    stock.props.find((p) => p.partition === 'system' && p.path === 'system/build.prop')?.props ??
+    stock.props.find((p) => p.path.endsWith('system/build.prop'))?.props ??
+    {}
+  )
+}
+function androidVersion(stock: StockInfo): string {
+  const p = systemProps(stock)
+  const release = p['ro.build.version.release'] ?? p['ro.system.build.version.release']
+  const sdk = p['ro.build.version.sdk']
+  const patch = p['ro.build.version.security_patch']
+  if (!release && !sdk) return '?'
+  return `${release ?? '?'}${sdk ? ` (API ${sdk})` : ''}${patch ? `, patch ${patch}` : ''}`
+}
 
 const ROM_EXTENSIONS = ['tgz', 'gz', 'tar', 'zip', 'bin', 'img']
 
@@ -186,6 +204,9 @@ export function ProjectView({
               </span>
               <span>
                 Version <strong data-testid="stock-version">{stock.romVersion ?? '?'}</strong>
+              </span>
+              <span>
+                Android <strong data-testid="stock-android">{androidVersion(stock)}</strong>
               </span>
               <span>
                 {stock.partitions.filter((p) => p.extracted).length} of {stock.partitions.length}{' '}
@@ -442,7 +463,45 @@ function PropsTab({ stock }: { stock: StockInfo }): React.JSX.Element {
   )
 }
 
-const MAX_ROWS = 500
+const PAGE_SIZE = 100
+
+const RELATION: Record<ApkUpdateResult['relation'], { label: string; cls: string }> = {
+  newer: { label: 'newer available', cls: 'warn' },
+  same: { label: 'up to date', cls: 'ok' },
+  older: { label: 'ROM is newer', cls: 'ok' },
+  unknown: { label: 'unknown', cls: 'cancelled' }
+}
+
+function UpdateCell({
+  state
+}: {
+  state: ApkUpdateResult | 'checking' | undefined
+}): React.JSX.Element | null {
+  if (state === undefined) return null
+  if (state === 'checking') return <span className="sub">checking…</span>
+  if (!state.latest) {
+    return (
+      <span className="sub" title={state.note ?? ''}>
+        {state.note ?? 'not found'}{' '}
+        <a href={state.url} target="_blank" rel="noreferrer">
+          open
+        </a>
+      </span>
+    )
+  }
+  const r = RELATION[state.relation]
+  return (
+    <span>
+      <span className={`badge ${r.cls}`}>{r.label}</span>
+      <div className="sub">
+        {state.latest}{' '}
+        <a href={state.url} target="_blank" rel="noreferrer">
+          page
+        </a>
+      </div>
+    </span>
+  )
+}
 
 function ApksTab({
   apks,
@@ -456,6 +515,21 @@ function ApksTab({
   const [filter, setFilter] = useState('')
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [partition, setPartition] = useState('')
+  const [updates, setUpdates] = useState<Record<string, ApkUpdateResult | 'checking'>>({})
+  const [page, setPage] = useState(0)
+  const checkUpdate = async (pkg: string, version: string | null): Promise<void> => {
+    setUpdates((u) => ({ ...u, [pkg]: 'checking' }))
+    try {
+      const r = await window.hk.apk.updateCheck(pkg, version)
+      setUpdates((u) => ({ ...u, [pkg]: r }))
+    } catch {
+      setUpdates((u) => {
+        const n = { ...u }
+        delete n[pkg]
+        return n
+      })
+    }
+  }
   const partitions = useMemo(() => [...new Set(apks.map((a) => a.partition))].sort(), [apks])
   // Signers by number of APKs: the platform key usually signs most of the system.
   const signers = useMemo(() => {
@@ -475,10 +549,19 @@ function ApksTab({
           (a.signerSha256 ?? '').startsWith(f))
     )
   }, [apks, filter, partition])
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+  const current = Math.min(page, pageCount - 1)
+  const pageRows = rows.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE)
   return (
     <>
       <div className="row" style={{ marginBottom: 10 }}>
-        <select value={partition} onChange={(e) => setPartition(e.target.value)}>
+        <select
+          value={partition}
+          onChange={(e) => {
+            setPartition(e.target.value)
+            setPage(0)
+          }}
+        >
           <option value="">All partitions</option>
           {partitions.map((p) => (
             <option key={p} value={p}>
@@ -490,12 +573,26 @@ function ApksTab({
           type="text"
           placeholder="Filter by package, path or signer prefix"
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={(e) => {
+            setFilter(e.target.value)
+            setPage(0)
+          }}
           data-testid="apks-filter"
         />
         <span className="sub" style={{ margin: 0 }} data-testid="apks-count">
           {rows.length} of {apks.length} APKs
         </span>
+        <InfoDot title="Latest (community) column">
+          <p>
+            &quot;Check&quot; looks the app up on memeosupdates.com, a community tracker (not
+            Xiaomi), and compares the version there with the one in your ROM.
+          </p>
+          <p>
+            The tracker may list a different region or variant, and version names are not always
+            comparable, so treat it as a hint and open the page to confirm. HyperKitchen only reads
+            the page; it never downloads or installs anything.
+          </p>
+        </InfoDot>
         <button
           disabled={!picked.size}
           onClick={() => onDebloat([...picked])}
@@ -526,11 +623,12 @@ function ApksTab({
             <th>Path</th>
             <th>Signer (SHA-256)</th>
             <th>Size</th>
+            <th>Latest (community)</th>
             <th />
           </tr>
         </thead>
         <tbody>
-          {rows.slice(0, MAX_ROWS).map((a) => (
+          {pageRows.map((a) => (
             <tr key={`${a.partition}/${a.path}`}>
               <td>
                 {a.packageName && (
@@ -562,6 +660,14 @@ function ApksTab({
                 <div className="sub">{a.schemes.join(' ')}</div>
               </td>
               <td>{formatSize(a.size)}</td>
+              <td className="mono">
+                {a.packageName && <UpdateCell state={updates[a.packageName]} />}
+                {a.packageName && updates[a.packageName] === undefined && (
+                  <button onClick={() => void checkUpdate(a.packageName as string, a.versionName)}>
+                    Check
+                  </button>
+                )}
+              </td>
               <td>
                 {a.size > 0 && !a.error && (
                   <button onClick={() => onEdit(`${a.partition}/${a.path}`)}>Edit</button>
@@ -571,8 +677,19 @@ function ApksTab({
           ))}
         </tbody>
       </table>
-      {rows.length > MAX_ROWS && (
-        <p className="sub">Showing the first {MAX_ROWS}. Narrow the filter to see more.</p>
+      {rows.length > PAGE_SIZE && (
+        <div className="row" style={{ marginTop: 10 }} data-testid="apks-pager">
+          <button disabled={current === 0} onClick={() => setPage(current - 1)}>
+            ← Prev
+          </button>
+          <span className="sub" style={{ margin: 0 }}>
+            Page {current + 1} of {pageCount} ({rows.length} apps
+            {rows.length !== apks.length ? ` filtered from ${apks.length}` : ''})
+          </span>
+          <button disabled={current >= pageCount - 1} onClick={() => setPage(current + 1)}>
+            Next →
+          </button>
+        </div>
       )}
     </>
   )

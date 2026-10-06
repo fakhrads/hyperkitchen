@@ -108,6 +108,7 @@ test('unpacks a ROM folder and shows partitions, files, props and APKs', async (
 
   await expect(page.getByTestId('stock-device')).toHaveText('testdev', { timeout: 60_000 })
   await expect(page.getByTestId('stock-version')).toHaveText('TEST.1.0')
+  await expect(page.getByTestId('stock-android')).toContainText('16 (API 36)')
   await expect(page.getByTestId('partition-system')).toContainText('system_a')
   await expect(page.getByTestId('partition-vendor')).toContainText('erofs')
 

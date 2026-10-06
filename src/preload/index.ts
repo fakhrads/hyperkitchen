@@ -31,6 +31,9 @@ const api: HkApi = {
     open: (path) => ipcRenderer.invoke(IPC.projectsOpen, path),
     forget: (path) => ipcRenderer.invoke(IPC.projectsForget, path)
   },
+  apk: {
+    updateCheck: (pkg, cur) => ipcRenderer.invoke(IPC.apkUpdateCheck, pkg, cur)
+  },
   stock: {
     info: (p) => ipcRenderer.invoke(IPC.stockInfo, p),
     inventory: (p) => ipcRenderer.invoke(IPC.stockInventory, p),
