@@ -165,7 +165,10 @@ async function unlockCnGms(
       total += dropped
     }
   }
-  if (!total) throw new Error('unlock-cn-gms: no cn.google.services feature found to remove')
+  if (!total) {
+    // Already removed (e.g. a second unlock op) or a ROM that never had it: nothing to do.
+    r.warnings.push('no cn.google.services feature to remove (already unlocked or not a CN base)')
+  }
 }
 
 /**

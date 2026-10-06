@@ -839,6 +839,23 @@ function BuildTab({
       </div>
 
       <h2>Builds</h2>
+      {builds[0]?.dataFormat && builds[0].dataFormat.level !== 'not-needed' && (
+        <div
+          className="panel"
+          style={{ borderColor: 'var(--warn)' }}
+          data-testid="build-format-warning"
+        >
+          <strong className="error-text">
+            ⚠ The latest build ({builds[0].id}) needs a data format
+          </strong>
+          <p className="sub" style={{ margin: '4px 0 0' }}>
+            {builds[0].dataFormat.level === 'first-install'
+              ? 'Flash it once with install_and_format_data (you lose apps, settings and internal storage); after that, later builds can be dirty-flashed with install_upgrade.'
+              : 'It must be flashed with install_and_format_data on every install.'}{' '}
+            Reason: {builds[0].dataFormat.reasons.join('; ')}.
+          </p>
+        </div>
+      )}
       {builds.length === 0 ? (
         <div className="empty">No builds yet.</div>
       ) : (
