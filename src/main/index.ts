@@ -44,6 +44,7 @@ import {
   listBuilds,
   listStockDir,
   readInventory,
+  readRomLocales,
   readRecipe,
   readStock,
   saveRecipe,
@@ -233,6 +234,7 @@ function registerIpc(): void {
   )
   ipcMain.handle(IPC.stockInfo, (_e, p: unknown) => readStock(z.string().min(1).parse(p)))
   ipcMain.handle(IPC.stockInventory, (_e, p: unknown) => readInventory(z.string().min(1).parse(p)))
+  ipcMain.handle(IPC.stockLocales, (_e, p: unknown) => readRomLocales(z.string().min(1).parse(p)))
   ipcMain.handle(IPC.stockListDir, (_e, p: unknown, rel: unknown) =>
     listStockDir(z.string().min(1).parse(p), z.string().parse(rel))
   )

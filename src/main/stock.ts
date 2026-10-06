@@ -4,6 +4,8 @@ import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { RecipeSchema, type Recipe } from '../shared/recipe'
 import type { BuildInfo, DirEntry, Inventory, StockInfo } from '../shared/types'
+import { arscLocales } from '../worker/formats/arsc'
+import { ZipFile } from '../worker/formats/zip'
 import { openProject } from './projects'
 import { assertInside } from './safety'
 
@@ -151,4 +153,18 @@ export async function exportRecipe(projectPath: string, destPath: string): Promi
 export async function importRecipe(projectPath: string, srcPath: string): Promise<Recipe> {
   const raw = JSON.parse(await readFile(srcPath, 'utf8'))
   return saveRecipe(projectPath, raw)
+}
+
+/** Locales the ROM's framework-res.apk carries (what languages it can actually display). */
+export async function readRomLocales(projectPath: string): Promise<string[]> {
+  const p = await openProject(projectPath)
+  const apk = join(p.path, 'stock', 'fs', 'system', 'system', 'framework', 'framework-res.apk')
+  if (!existsSync(apk)) return []
+  const z = await ZipFile.open(apk)
+  try {
+    const arsc = await z.read('resources.arsc', 512 * 1024 * 1024)
+    return arsc ? arscLocales(arsc) : []
+  } finally {
+    await z.close()
+  }
 }

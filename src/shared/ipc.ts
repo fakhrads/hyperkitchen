@@ -100,6 +100,7 @@ export const IPC = {
   stockInfo: 'stock:info',
   stockInventory: 'stock:inventory',
   stockListDir: 'stock:list-dir',
+  stockLocales: 'stock:locales',
   buildsList: 'builds:list',
   recipeGet: 'recipe:get',
   recipeSave: 'recipe:save',
@@ -172,6 +173,8 @@ export interface HkApi {
     inventory(projectPath: string): Promise<Inventory | null>
     /** rel is relative to stock/fs, e.g. "system/system/priv-app". */
     listDir(projectPath: string, rel: string): Promise<DirEntry[]>
+    /** Locales framework-res.apk carries (languages the ROM can actually show). */
+    locales(projectPath: string): Promise<string[]>
   }
   recipe: {
     get(projectPath: string): Promise<Recipe>

@@ -181,3 +181,33 @@ export function der(tag: number, ...content: Buffer[]): Buffer {
         : Buffer.from([0x82, c.length >> 8, c.length & 0xff])
   return Buffer.concat([Buffer.from([tag]), len, c])
 }
+
+/** A minimal resources.arsc that declares the given locales (e.g. ['en-US','zh-CN']). Only the
+ * chunk headers and ResTable_config language/country bytes are valid, enough for arscLocales. */
+export function arscWithLocales(locales: string[]): Buffer {
+  const types: Buffer[] = []
+  for (const loc of locales) {
+    const [lang, country = ''] = loc.split('-')
+    const t = Buffer.alloc(32)
+    t.writeUInt16LE(0x0201, 0) // RES_TABLE_TYPE
+    t.writeUInt16LE(20, 2) // headerSize
+    t.writeUInt32LE(32, 4) // size
+    t[8] = 1 // type id
+    t.writeUInt32LE(0, 12) // entryCount
+    t.writeUInt32LE(32, 16) // entriesStart
+    t.writeUInt32LE(28, 20) // config size
+    t.write(lang.slice(0, 2), 28, 'latin1')
+    if (country) t.write(country.slice(0, 2), 30, 'latin1')
+    types.push(t)
+  }
+  const body = Buffer.concat(types)
+  const pkg = Buffer.alloc(12)
+  pkg.writeUInt16LE(0x0200, 0) // RES_TABLE_PACKAGE
+  pkg.writeUInt16LE(12, 2) // headerSize (body starts right after)
+  pkg.writeUInt32LE(12 + body.length, 4)
+  const head = Buffer.alloc(12)
+  head.writeUInt16LE(0x0002, 0) // RES_TABLE_TYPE (table)
+  head.writeUInt16LE(12, 2)
+  head.writeUInt32LE(12 + pkg.length + body.length, 4)
+  return Buffer.concat([head, pkg, body])
+}

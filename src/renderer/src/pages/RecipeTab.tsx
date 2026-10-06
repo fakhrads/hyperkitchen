@@ -76,18 +76,21 @@ export function RecipeTab({
   const [refProject, setRefProject] = useState<string | null>(null)
   const [groups, setGroups] = useState<ImportGroup[]>(['global-compat', 'gapps'])
   const [materials, setMaterials] = useState<Material[]>([])
+  const [romLocales, setRomLocales] = useState<string[]>([])
 
   useEffect(() => {
     void Promise.all([
       window.hk.recipe.get(projectPath),
       window.hk.recipe.catalog(),
-      window.hk.materials.list()
+      window.hk.materials.list(),
+      window.hk.stock.locales(projectPath)
     ])
-      .then(([r, c, m]) => {
+      .then(([r, c, m, loc]) => {
         setRecipe(r)
         setSaved(JSON.stringify(r))
         setCatalog(c)
         setMaterials(m)
+        setRomLocales(loc)
       })
       .catch((e) => setError(errorText(e)))
   }, [projectPath])
@@ -388,10 +391,7 @@ export function RecipeTab({
         <SystemTweaks
           ops={ops}
           localeFile={localeFile}
-          currentLocale={
-            stock.props.find((x) => x.props['ro.product.locale'])?.props['ro.product.locale'] ??
-            null
-          }
+          supportedLocales={romLocales}
           onChange={(add, removeIds) =>
             set([
               ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
@@ -1572,26 +1572,6 @@ function AppReplace({
   )
 }
 
-// Common locales for the default-language control (BCP-47 as ro.product.locale expects).
-const LOCALES: Array<[string, string]> = [
-  ['en-US', 'English (US)'],
-  ['en-GB', 'English (UK)'],
-  ['id-ID', 'Indonesian'],
-  ['zh-CN', 'Chinese (Simplified)'],
-  ['zh-TW', 'Chinese (Traditional)'],
-  ['ru-RU', 'Russian'],
-  ['es-ES', 'Spanish'],
-  ['pt-BR', 'Portuguese (Brazil)'],
-  ['de-DE', 'German'],
-  ['fr-FR', 'French'],
-  ['ja-JP', 'Japanese'],
-  ['ko-KR', 'Korean'],
-  ['vi-VN', 'Vietnamese'],
-  ['th-TH', 'Thai'],
-  ['tr-TR', 'Turkish'],
-  ['ar-EG', 'Arabic']
-]
-
 const SET_LOCALE = 'set-default-locale'
 
 // Toggles that HyperOS modders commonly use, each mapping to a debloat of standard packages.
@@ -1617,17 +1597,37 @@ const TWEAKS: Array<{ id: string; title: string; hint: string; packages: string[
   }
 ]
 
+const LANG_NAMES: Record<string, string> = {
+  en: 'English',
+  'en-US': 'English (US)',
+  'en-GB': 'English (UK)',
+  zh: 'Chinese',
+  'zh-CN': 'Chinese (Simplified)',
+  'zh-TW': 'Chinese (Traditional)',
+  'bo-CN': 'Tibetan',
+  'ug-CN': 'Uyghur',
+  'id-ID': 'Indonesian',
+  'ru-RU': 'Russian'
+}
+const langName = (code: string): string => LANG_NAMES[code] ?? code
+
 function SystemTweaks({
   ops,
   localeFile,
-  currentLocale,
+  supportedLocales,
   onChange
 }: {
   ops: Operation[]
   localeFile: string
-  currentLocale: string | null
+  supportedLocales: string[]
   onChange: (add: Operation[], removeIds: string[]) => void
 }): React.JSX.Element {
+  // Full BCP-47 locales (en-US) the ROM carries, plus their bare language (en) which also works.
+  const choices = [
+    ...new Set(supportedLocales.flatMap((l) => (l.includes('-') ? [l, l.split('-')[0]] : [l])))
+  ]
+    .filter((l) => l)
+    .sort()
   const localeOp = ops.find((o) => o.id === SET_LOCALE)
   const chosen =
     localeOp?.type === 'set-props' ? (localeOp.params.set['ro.product.locale'] ?? '') : ''
@@ -1657,10 +1657,10 @@ function SystemTweaks({
           onChange={(e) => setLocale(e.target.value)}
           data-testid="tweak-locale"
         >
-          <option value="">Keep ROM default{currentLocale ? ` (${currentLocale})` : ''}</option>
-          {LOCALES.map(([code, label]) => (
+          <option value="">Keep ROM default</option>
+          {choices.map((code) => (
             <option key={code} value={code}>
-              {label} ({code})
+              {langName(code)} ({code})
             </option>
           ))}
         </select>
@@ -1669,9 +1669,17 @@ function SystemTweaks({
             Sets <code>ro.product.locale</code> in {localeFile}, the language the device starts in
             before the user picks one. Users can still change it in Settings.
           </p>
-          <p>It does not install extra language resources; those come with the ROM.</p>
+          <p>
+            Only languages the ROM actually ships are listed. A CN base usually has only Chinese and
+            English; picking a language the ROM lacks would just fall back to English.
+          </p>
         </InfoDot>
       </div>
+      <p className="sub" style={{ margin: '4px 0 0' }}>
+        This ROM includes: {supportedLocales.length ? supportedLocales.join(', ') : '(unknown)'}.
+        Other languages (e.g. Indonesian) are not in a CN base; they need a language pack ported
+        from a global ROM, added via the materials library.
+      </p>
       <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
         {TWEAKS.map((t) => {
           const op = ops.find((o) => o.id === t.id)
