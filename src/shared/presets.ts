@@ -79,7 +79,8 @@ export const CN_GLOBAL_PATCH_SETS = [
   'no-drm-broadcast',
   'powerkeeper-gms',
   'joyose-off',
-  'installer-no-ads'
+  'installer-no-ads',
+  'launcher-no-ads'
 ]
 
 /** Full cleanup: debloat (incl. forced core apps), CN GMS unlock with GNSS, all patch sets. */

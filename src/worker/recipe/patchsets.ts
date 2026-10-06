@@ -443,6 +443,32 @@ export const PATCH_SETS: PatchSet[] = [
         ]
       }
     ]
+  },
+  {
+    id: 'launcher-no-ads',
+    title: 'Remove the launcher folder and app-drawer recommendation ads',
+    description:
+      'Turns off the MIUI launcher recommendation ads: the "guess you like" apps inside folders and the recommended apps in the all-apps drawer and search. It forces the two user-facing toggles off at the source: RecommendController.isRecommendSwitchOn (folders; the CN and Global subclasses do not override it) and AllAppsSettingHelper.isRecommendAppsEnable (app drawer). Both already return a stored on/off value, so forcing off is the same supported state as turning the toggles off by hand.',
+    targets: [
+      {
+        path: 'product/priv-app/MiuiHome/MiuiHome.apk',
+        verifiedSha256: 'b561638ff44447d9271a124ca9fca44049fdd6516df9f8aa22253a12a00954f4',
+        rules: [
+          {
+            kind: 'stub',
+            cls: 'com/miui/home/folder/commercial/recommend/controller/RecommendController',
+            method: 'isRecommendSwitchOn()Z',
+            returns: 0
+          },
+          {
+            kind: 'stub',
+            cls: 'com/miui/home/launcher/allapps/settings/AllAppsSettingHelper',
+            method: 'isRecommendAppsEnable()Z',
+            returns: 0
+          }
+        ]
+      }
+    ]
   }
 ]
 

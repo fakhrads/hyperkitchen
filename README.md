@@ -104,7 +104,8 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   recovery partition or the bootloader firmware.
 - **Recipe**: debloat, build.prop edits, CN Google services unlock and smali
   patch sets (notifications, Greezer, PowerKeeper, Joyose, and removing the
-  recommended-apps ads in the package installer), with a full-cleanup preset,
+  recommendation ads in the package installer and the launcher), with a
+  full-cleanup preset,
   plus an optional, default-off FLAG_SECURE patch that lets you take
   screenshots in apps that block them (it weakens a protection those apps opt
   into). Smali patches keep the original APK signature blocks; Android does not
