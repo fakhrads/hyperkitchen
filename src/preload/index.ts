@@ -14,6 +14,11 @@ const api: HkApi = {
     get: () => ipcRenderer.invoke(IPC.settingsGet),
     update: (patch) => ipcRenderer.invoke(IPC.settingsUpdate, patch)
   },
+  materials: {
+    list: () => ipcRenderer.invoke(IPC.materialsList),
+    add: (kind, path, label) => ipcRenderer.invoke(IPC.materialsAdd, kind, path, label),
+    remove: (id) => ipcRenderer.invoke(IPC.materialsRemove, id)
+  },
   dialog: {
     pickDir: (title) => ipcRenderer.invoke(IPC.dialogPickDir, title),
     pickFile: (title, extensions) => ipcRenderer.invoke(IPC.dialogPickFile, title, extensions),

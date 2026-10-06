@@ -14,6 +14,7 @@ import type {
 
 import type { ModSummary } from './appmod'
 import type { Recipe } from './recipe'
+import type { Material } from './types'
 
 export interface ModFile {
   /** null when the file is binary or too large to edit as text. */
@@ -95,6 +96,9 @@ export const IPC = {
   recipeCatalog: 'recipe:catalog',
   recipeExport: 'recipe:export',
   recipeImport: 'recipe:import',
+  materialsList: 'materials:list',
+  materialsAdd: 'materials:add',
+  materialsRemove: 'materials:remove',
   buildsReveal: 'builds:reveal',
   gappsInspect: 'gapps:inspect',
   mediaInspect: 'media:inspect',
@@ -126,6 +130,12 @@ export interface HkApi {
   settings: {
     get(): Promise<Settings>
     update(patch: Partial<Pick<Settings, 'projectsRoot' | 'javaPath'>>): Promise<Settings>
+  }
+  materials: {
+    list(): Promise<Material[]>
+    /** Register a file or folder; validates and hashes it. */
+    add(kind: Material['kind'], path: string, label: string): Promise<Material>
+    remove(id: string): Promise<void>
   }
   dialog: {
     pickDir(title: string): Promise<string | null>

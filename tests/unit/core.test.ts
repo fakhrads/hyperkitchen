@@ -79,7 +79,8 @@ describe('settings', () => {
     schema: 1 as const,
     projectsRoot: '/x',
     javaPath: '',
-    recentProjects: []
+    recentProjects: [],
+    materials: []
   })
   it('returns defaults when no file and persists updates', async () => {
     const file = join(tmp, 'settings.json')

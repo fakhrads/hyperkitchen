@@ -33,6 +33,7 @@ import {
   type ModJobKind
 } from './appmod'
 import { createProject, listProjects, openProject } from './projects'
+import { addMaterial, listMaterials, removeMaterial } from './materials'
 import { SettingsPatchSchema, SettingsStore } from './settings'
 import {
   buildDir,
@@ -61,7 +62,8 @@ const settings = new SettingsStore(
     projectsRoot:
       process.env.HK_PROJECTS_ROOT ?? join(app.getPath('home'), 'HyperKitchen', 'projects'),
     javaPath: '',
-    recentProjects: []
+    recentProjects: [],
+    materials: []
   })
 )
 
@@ -152,6 +154,13 @@ function registerIpc(): void {
   }))
 
   ipcMain.handle(IPC.settingsGet, () => settings.get())
+  ipcMain.handle(IPC.materialsList, () => listMaterials(settings))
+  ipcMain.handle(IPC.materialsAdd, (_e, kind: unknown, path: unknown, label: unknown) =>
+    addMaterial(settings, { kind, path, label: label ?? '' })
+  )
+  ipcMain.handle(IPC.materialsRemove, (_e, id: unknown) =>
+    removeMaterial(settings, z.string().parse(id))
+  )
   ipcMain.handle(IPC.settingsUpdate, (_e, patch: unknown) =>
     settings.update(SettingsPatchSchema.parse(patch))
   )

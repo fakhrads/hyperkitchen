@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { AppInfo, Settings } from '../../../shared/types'
+import type { AppInfo, Material, Settings } from '../../../shared/types'
 
 export function SettingsPage({ info }: { info: AppInfo | null }): React.JSX.Element {
   const [s, setS] = useState<Settings | null>(null)
@@ -59,6 +59,8 @@ export function SettingsPage({ info }: { info: AppInfo | null }): React.JSX.Elem
         {msg && <p className="sub">{msg}</p>}
       </div>
 
+      <MaterialsPanel />
+
       {info && (
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>About this install</h2>
@@ -96,5 +98,107 @@ export function SettingsPage({ info }: { info: AppInfo | null }): React.JSX.Elem
         </div>
       )}
     </>
+  )
+}
+
+const KIND_LABEL: Record<Material['kind'], string> = {
+  gapps: 'MindTheGapps zip',
+  'reference-rom': 'Reference ROM (unpacked project)',
+  image: 'Image (logo / wallpaper)'
+}
+
+function MaterialsPanel(): React.JSX.Element {
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const reload = (): void => void window.hk.materials.list().then(setMaterials)
+  useEffect(reload, [])
+  const add = async (kind: Material['kind']): Promise<void> => {
+    const path =
+      kind === 'reference-rom'
+        ? await window.hk.dialog.pickDir('Choose an unpacked project folder')
+        : await window.hk.dialog.pickFile(
+            `Choose a ${kind === 'gapps' ? 'MindTheGapps zip' : 'image'}`,
+            kind === 'gapps' ? ['zip'] : ['png', 'jpg', 'jpeg', 'webp']
+          )
+    if (!path) return
+    setBusy(true)
+    setError(null)
+    try {
+      await window.hk.materials.add(kind, path, '')
+      reload()
+    } catch (e) {
+      setError(String((e as Error).message))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="panel" data-testid="materials-panel">
+      <h2 style={{ marginTop: 0 }}>Materials library</h2>
+      <p className="sub" style={{ margin: '0 0 8px' }}>
+        Register a GApps zip, a reference ROM or an image once; recipes then pick it from here
+        instead of browsing every time. Files stay where they are on disk; nothing is copied into
+        HyperKitchen. HyperKitchen never downloads any of them.
+      </p>
+      <div className="row">
+        <button disabled={busy} onClick={() => void add('gapps')} data-testid="material-add-gapps">
+          Add GApps zip…
+        </button>
+        <button disabled={busy} onClick={() => void add('reference-rom')}>
+          Add reference ROM…
+        </button>
+        <button disabled={busy} onClick={() => void add('image')}>
+          Add image…
+        </button>
+        {busy && (
+          <span className="sub" style={{ margin: 0 }}>
+            Reading…
+          </span>
+        )}
+      </div>
+      {error && <p className="error-text">{error}</p>}
+      {materials.length > 0 && (
+        <table style={{ marginTop: 8 }} data-testid="materials-table">
+          <thead>
+            <tr>
+              <th>Kind</th>
+              <th>Label</th>
+              <th>Path</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {materials.map((m) => (
+              <tr key={m.id}>
+                <td>{KIND_LABEL[m.kind]}</td>
+                <td>
+                  {m.label}
+                  {m.meta && (
+                    <div className="sub">
+                      {Object.entries(m.meta)
+                        .filter(([, v]) => v)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(' · ')}
+                    </div>
+                  )}
+                </td>
+                <td className="mono">{m.path}</td>
+                <td>
+                  <button
+                    onClick={async () => {
+                      await window.hk.materials.remove(m.id)
+                      reload()
+                    }}
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   )
 }

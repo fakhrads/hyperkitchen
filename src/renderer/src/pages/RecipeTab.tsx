@@ -7,7 +7,7 @@ import {
   type ImportGroup
 } from '../../../shared/presets'
 import { RecipeSchema, type Operation, type Recipe } from '../../../shared/recipe'
-import type { StockInfo } from '../../../shared/types'
+import type { Material, StockInfo } from '../../../shared/types'
 import { errorText, formatSize } from '../format'
 
 const USER_DEBLOAT = 'user-debloat'
@@ -70,13 +70,19 @@ export function RecipeTab({
   const [propValue, setPropValue] = useState('')
   const [refProject, setRefProject] = useState<string | null>(null)
   const [groups, setGroups] = useState<ImportGroup[]>(['global-compat', 'gapps'])
+  const [materials, setMaterials] = useState<Material[]>([])
 
   useEffect(() => {
-    void Promise.all([window.hk.recipe.get(projectPath), window.hk.recipe.catalog()])
-      .then(([r, c]) => {
+    void Promise.all([
+      window.hk.recipe.get(projectPath),
+      window.hk.recipe.catalog(),
+      window.hk.materials.list()
+    ])
+      .then(([r, c, m]) => {
         setRecipe(r)
         setSaved(JSON.stringify(r))
         setCatalog(c)
+        setMaterials(m)
       })
       .catch((e) => setError(errorText(e)))
   }, [projectPath])
@@ -290,6 +296,22 @@ export function RecipeTab({
           (install_and_format_data).
         </p>
         <div className="row">
+          {materials.some((m) => m.kind === 'reference-rom') && (
+            <select
+              value={refProject ?? ''}
+              onChange={(e) => setRefProject(e.target.value || null)}
+              data-testid="import-from-library"
+            >
+              <option value="">From library…</option>
+              {materials
+                .filter((m) => m.kind === 'reference-rom')
+                .map((m) => (
+                  <option key={m.id} value={m.path}>
+                    {m.label} ({m.meta?.romVersion ?? ''})
+                  </option>
+                ))}
+            </select>
+          )}
           <button
             onClick={() =>
               void window.hk.dialog
@@ -383,6 +405,7 @@ export function RecipeTab({
 
       <h2>GApps from MindTheGapps</h2>
       <MindTheGapps
+        gappsMaterials={materials.filter((m) => m.kind === 'gapps')}
         current={recipe.operations.find((o) => o.type === 'gapps') ?? null}
         onApply={(add) => set([...ops.filter((o) => !add.some((a) => a.id === o.id)), ...add])}
         onRemove={() => set(recipe.operations.filter((o) => o.type !== 'gapps'))}
@@ -1008,10 +1031,12 @@ const GAPPS_NOTES: Record<string, string> = {
 }
 
 function MindTheGapps({
+  gappsMaterials,
   current,
   onApply,
   onRemove
 }: {
+  gappsMaterials: Material[]
   current: Operation | null
   onApply: (ops: Operation[]) => void
   onRemove: () => void
@@ -1020,18 +1045,20 @@ function MindTheGapps({
   const [exclude, setExclude] = useState<string[]>(GAPPS_DEFAULT_EXCLUDE)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const pick = async (): Promise<void> => {
-    const z = await window.hk.dialog.pickFile('Choose a MindTheGapps zip', ['zip'])
-    if (!z) return
+  const inspect = async (path: string): Promise<void> => {
     setBusy(true)
     setError(null)
     try {
-      setInfo(await window.hk.recipe.inspectGapps(z))
+      setInfo(await window.hk.recipe.inspectGapps(path))
     } catch (e) {
       setError(errorText(e))
     } finally {
       setBusy(false)
     }
+  }
+  const pick = async (): Promise<void> => {
+    const z = await window.hk.dialog.pickFile('Choose a MindTheGapps zip', ['zip'])
+    if (z) await inspect(z)
   }
   return (
     <div className="panel" data-testid="gapps-panel">
@@ -1052,6 +1079,20 @@ function MindTheGapps({
         </p>
       )}
       <div className="row">
+        {gappsMaterials.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => e.target.value && void inspect(e.target.value)}
+            data-testid="gapps-from-library"
+          >
+            <option value="">From library…</option>
+            {gappsMaterials.map((m) => (
+              <option key={m.id} value={m.path}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        )}
         <button disabled={busy} onClick={() => void pick()} data-testid="gapps-pick">
           {busy ? 'Reading…' : 'Choose zip…'}
         </button>

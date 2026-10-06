@@ -24,12 +24,27 @@ export interface AppInfo {
   packaged: boolean
 }
 
+/** A reusable build ingredient on this machine, referenced by path (never copied into the repo). */
+export interface Material {
+  id: string
+  kind: 'gapps' | 'reference-rom' | 'image'
+  path: string
+  label: string
+  /** sha256 of the file (gapps, image); absent for a reference-rom folder. */
+  sha256?: string
+  /** Extra facts for the picker: gapps version/arch, reference-rom romVersion, image size. */
+  meta?: Record<string, string>
+  addedAt: string
+}
+
 export interface Settings {
   schema: 1
   projectsRoot: string
   /** Explicit java executable. Empty string means auto-detect. */
   javaPath: string
   recentProjects: string[]
+  /** Reusable materials (GApps zips, reference ROMs, images) registered once. */
+  materials: Material[]
 }
 
 // ---------------------------------------------------------------- projects

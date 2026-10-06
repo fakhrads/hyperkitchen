@@ -1,14 +1,30 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute } from 'node:path'
 import { z } from 'zod'
-import type { Settings } from '../shared/types'
+import type { Material, Settings } from '../shared/types'
+
+const MaterialSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(['gapps', 'reference-rom', 'image']),
+  path: z.string().min(1),
+  label: z.string(),
+  sha256: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
+  meta: z.record(z.string(), z.string()).optional(),
+  addedAt: z.string()
+})
 
 const SettingsSchema = z.object({
   schema: z.literal(1),
   projectsRoot: z.string().min(1),
   javaPath: z.string(),
-  recentProjects: z.array(z.string())
+  recentProjects: z.array(z.string()),
+  materials: z.array(MaterialSchema).default([])
 })
+
+export type { Material }
 
 export const SettingsPatchSchema = z
   .object({
