@@ -11,6 +11,7 @@ import type {
 } from '../../../shared/types'
 import { errorText, formatSize } from '../format'
 import { ProgressBar } from './Jobs'
+import { InfoDot } from '../InfoDot'
 import { AppsTab } from './AppsTab'
 import { RecipeTab } from './RecipeTab'
 
@@ -610,7 +611,25 @@ function BuildTab({
               data-testid="verity-fstab"
             />{' '}
             <strong>Remove avb flags from the vendor_boot fstab</strong> (default). vbmeta stays
-            stock. Same edit as the PureCN onyx ROM.
+            stock. Same edit as the PureCN onyx ROM.{' '}
+            <InfoDot title="Why a verity change is needed at all">
+              <p>
+                Android Verified Boot (AVB) stores a cryptographic hash tree of each read-only
+                partition. At boot, dm-verity checks every block against it and refuses to mount a
+                partition that does not match.
+              </p>
+              <p>
+                Rebuilding a partition (new erofs image) changes those hashes, so the stock AVB data
+                no longer matches and the device would fail to boot. One of the two options here
+                must be used so the rebuilt ROM boots.
+              </p>
+              <p>
+                <strong>This option</strong> removes the <code>avb</code> flags from the first-stage
+                mount table (fstab) inside the vendor_boot ramdisk, so dm-verity is never set up for
+                those partitions. vbmeta.img is left exactly as Xiaomi signed it. This is the
+                lightest-touch change and is byte-for-byte what PureCN does on onyx.
+              </p>
+            </InfoDot>
           </label>
           <label>
             <input
@@ -621,7 +640,27 @@ function BuildTab({
               data-testid="verity-vbmeta"
             />{' '}
             <strong>Disable verification in vbmeta.img</strong> (flags 3, like fastboot
-            --disable-verity --disable-verification). vendor_boot stays stock.
+            --disable-verity --disable-verification). vendor_boot stays stock.{' '}
+            <InfoDot title="What disabling vbmeta verification does">
+              <p>
+                vbmeta.img is the AVB metadata partition: it holds the signed hashes and the
+                hashtree descriptors for the other partitions. It has a flags field (AOSP
+                avb_vbmeta_image.h, offset 120).
+              </p>
+              <p>
+                This option sets <code>flags = 3</code>: <code>HASHTREE_DISABLED (1)</code> turns
+                off dm-verity for every partition, and <code>VERIFICATION_DISABLED (2)</code> turns
+                off the signature check of the vbmeta chain. It is exactly what{' '}
+                <code>fastboot --disable-verity --disable-verification flash vbmeta</code> writes.
+              </p>
+              <p>
+                Because the flags live inside the signed header, the signature no longer matches.
+                libavb only tolerates that on an <strong>unlocked</strong> bootloader, so this (and
+                the fstab option) only boots unlocked. Use this when a build also changes a
+                partition that the fstab option does not cover; otherwise the fstab option is
+                preferred because it leaves vbmeta untouched.
+              </p>
+            </InfoDot>
           </label>
           <label>
             <input
@@ -630,7 +669,18 @@ function BuildTab({
               onChange={(e) => setVerify(e.target.checked)}
               data-testid="build-verify"
             />{' '}
-            Verify: extract every rebuilt image again and compare it file by file (slower)
+            Verify: extract every rebuilt image again and compare it file by file (slower){' '}
+            <InfoDot title="Build verification">
+              <p>
+                After building each partition, HyperKitchen extracts the new image again and
+                compares every file (content, type, size, symlink target, owner, mode, SELinux
+                label) against what went in, and reads super.img back to confirm the layout.
+              </p>
+              <p>
+                It roughly doubles build time but proves the repack is faithful. Leave it on unless
+                you are iterating quickly and will verify a later build.
+              </p>
+            </InfoDot>
           </label>
           <label>
             <input
@@ -640,7 +690,16 @@ function BuildTab({
               data-testid="build-zip"
             />{' '}
             One zip like xiaomi.eu: scripts for macOS, Linux and Windows with fastboot included,
-            installable from TWRP/OrangeFox too (needs as much free space again as the build)
+            installable from TWRP/OrangeFox too (needs as much free space again as the build){' '}
+            <InfoDot title="The xiaomi.eu style zip">
+              <p>
+                Without this you still get the <code>images/</code> folder and the flash scripts in
+                the build folder. With it, HyperKitchen also writes one zip containing everything
+                plus a recovery installer, so the same file can be flashed with fastboot scripts or
+                sideloaded from TWRP/OrangeFox.
+              </p>
+              <p>It needs about as much extra free space as the build while it is being made.</p>
+            </InfoDot>
           </label>
         </div>
         <div className="row" style={{ marginTop: 10 }}>
