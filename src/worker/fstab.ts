@@ -1,7 +1,7 @@
 // Android fstab: <src> <mount point> <type> <mount flags> <fs_mgr flags>, whitespace separated,
 // fs_mgr flags comma separated. First-stage init sets up dm-verity only for entries with
 // avb_keys, avb or avb_hashtree_digest (init/first_stage_mount.cpp, SetUpDmVerity). Removing
-// those flags mounts the partition without verity. The PureCN onyx ROM makes the same edit
+// those flags mounts the partition without verity. Global onyx ROMs make the same edit
 // (avb= and avb_keys=) in the vendor_boot first-stage fstab; MIO-KITCHEN's avb_disabler too.
 
 const AVB_FLAG = /^(avb|avb=.*|avb_keys=.*|avb_hashtree_digest=.*)$/

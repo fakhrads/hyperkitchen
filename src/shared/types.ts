@@ -149,7 +149,7 @@ export interface Inventory {
 /**
  * How the build keeps the device from rejecting rebuilt partitions (their AVB hashtree no
  * longer matches):
- * - fstab: remove avb flags from the vendor_boot first-stage fstab (what PureCN ships for onyx)
+ * - fstab: remove avb flags from the vendor_boot first-stage fstab (what global onyx ROMs ship)
  * - vbmeta-flags: set HASHTREE_DISABLED | VERIFICATION_DISABLED in vbmeta.img
  * Both only boot with an unlocked bootloader.
  */

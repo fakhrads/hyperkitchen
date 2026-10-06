@@ -11,7 +11,7 @@
 //   aligned like apksig/zipalign: 16 KiB for .so, 4 bytes otherwise), with a fixed DOS time so
 //   the output is reproducible.
 // - An APK Signing Block, if present, is copied unchanged right before the central directory,
-//   as PureCN does. The signatures no longer match the content; Android does not verify APKs
+//   as community ROMs do. The signatures no longer match the content; Android does not verify APKs
 //   on system partitions (InstallPackageHelper: skipVerify = scanSystemPartition) and only
 //   reads the certificates.
 

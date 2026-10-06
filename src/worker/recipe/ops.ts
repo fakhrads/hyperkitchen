@@ -148,7 +148,7 @@ async function unlockCnGms(
   op: Extract<Operation, { type: 'unlock-cn-gms' }>,
   r: OperationReport
 ): Promise<void> {
-  // Files from the stock onyx ROM that declare the CN GMS features. PureCN removes the
+  // Files from the stock onyx ROM that declare the CN GMS features. Global ROMs remove the
   // product file and disables the odm GNSS one; we drop only the feature lines.
   const files = ['product/etc/permissions/cn.google.services.xml']
   if (op.params.includeGnss) files.push('odm/etc/permissions/com.gnss.bds_preference.xml')
@@ -172,7 +172,7 @@ async function unlockCnGms(
 }
 
 /**
- * The PureCN onyx edit: drop file-based and metadata encryption from the /data entries of
+ * The edit: drop file-based and metadata encryption from the /data entries of
  * vendor/etc/fstab.qcom and report ro.crypto.state=encrypted. Data is then stored unencrypted.
  */
 async function disableEncryption(
@@ -298,7 +298,7 @@ const DEVICE_INFO = 'product/etc/device_info.json'
 
 /**
  * Write product/etc/device_info.json, the source of the About phone spec card (CPU, battery,
- * camera, screen). HyperOS CN stock has no such file; PureCN adds one. Empty values in `basic`
+ * camera, screen). HyperOS CN stock has no such file; global ROMs add one. Empty values in `basic`
  * or `camera` are dropped so the card does not show blank rows.
  */
 async function specCard(

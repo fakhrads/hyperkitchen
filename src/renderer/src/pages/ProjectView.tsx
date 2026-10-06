@@ -735,7 +735,7 @@ function BuildTab({
               data-testid="verity-fstab"
             />{' '}
             <strong>Remove avb flags from the vendor_boot fstab</strong> (default). vbmeta stays
-            stock. Same edit as the PureCN onyx ROM.{' '}
+            stock. Same edit global onyx ROMs make.{' '}
             <InfoDot title="Why a verity change is needed at all">
               <p>
                 Android Verified Boot (AVB) stores a cryptographic hash tree of each read-only
@@ -751,7 +751,7 @@ function BuildTab({
                 <strong>This option</strong> removes the <code>avb</code> flags from the first-stage
                 mount table (fstab) inside the vendor_boot ramdisk, so dm-verity is never set up for
                 those partitions. vbmeta.img is left exactly as Xiaomi signed it. This is the
-                lightest-touch change and is byte-for-byte what PureCN does on onyx.
+                lightest-touch change and is byte-for-byte what global onyx ROMs do.
               </p>
             </InfoDot>
           </label>

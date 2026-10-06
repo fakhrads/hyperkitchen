@@ -2,7 +2,7 @@
 // matches it expects; the patcher fails when the count differs, so a patch never applies
 // partially or to the wrong code on another build.
 //
-// Source: per-method diff of the PureCN onyx ROM against stock OS3.0.305.0.WOLCNXM (both
+// Source: per-method diff of a reference global onyx ROM against stock OS3.0.305.0.WOLCNXM (both
 // decoded with apktool 3.0.3), recorded in PLAN.md 1.2b. `verifiedSha256` is the stock target
 // the rules were checked against; on other builds the expected counts still have to match and
 // the result is reported as unverified.
@@ -269,7 +269,7 @@ export const PATCH_SETS: PatchSet[] = [
     id: 'no-drm-broadcast',
     title: 'Skip the MIUI DRM broadcast at boot',
     description:
-      'Removes the DrmBroadcast.broadcast() call from ActivityManagerServiceImpl.finishBooting, as PureCN does.',
+      'Removes the DrmBroadcast.broadcast() call from ActivityManagerServiceImpl.finishBooting.',
     targets: [
       {
         path: MIUI_SERVICES,
@@ -340,7 +340,7 @@ export const PATCH_SETS: PatchSet[] = [
     id: 'joyose-off',
     title: 'Neutralise Joyose performance and thermal tuning',
     description:
-      'Points every /sys/ path Joyose writes to (CPU, GPU, thermal, FPS, game boost) at /gayos/, which does not exist, and stubs two background tasks. Same as PureCN.',
+      'Points every /sys/ path Joyose writes to (CPU, GPU, thermal, FPS, game boost) at /gayos/, which does not exist, and stubs two background tasks.',
     targets: [
       {
         path: 'product/pangu/system/app/Joyose/Joyose.apk',

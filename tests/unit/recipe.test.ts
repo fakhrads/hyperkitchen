@@ -432,10 +432,10 @@ describe('import-from-rom', () => {
   })
 })
 
-describe('PureCN debloat/patch preset', () => {
+describe('full cleanup preset', () => {
   it('produces a valid recipe with unique ids and keeps encryption on', async () => {
-    const { purecnPreset } = await import('../../src/shared/presets')
-    const r = RecipeSchema.parse({ schema: 1, operations: purecnPreset() })
+    const { cleanupPreset } = await import('../../src/shared/presets')
+    const r = RecipeSchema.parse({ schema: 1, operations: cleanupPreset() })
     const ids = r.operations.map((o) => o.id)
     expect(new Set(ids).size).toBe(ids.length)
     // The preset is our own debloat + stock patches; it imports nothing from another ROM.

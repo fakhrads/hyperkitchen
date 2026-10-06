@@ -12,7 +12,7 @@
 //     the same signer and an equal or newer versionCode; replaced when newer.
 //   - com.android.vending in the CN ROM is GooglePlayServicesUpdater, signed with another key
 //     than Play Store (Phonesky); with replaceDifferentSigner it is removed for Phonesky, as
-//     PureCN does. The first boot then needs a data format.
+//     community CN-to-global ROMs do. The first boot then needs a data format.
 //   - Files that already exist in the ROM (e.g. product/etc/sysconfig/google.xml, newer in the
 //     ROM than in MindTheGapps 16) are kept.
 //   - MindTheGapps removes Provision when it adds SetupWizard; HyperOS needs Provision, so

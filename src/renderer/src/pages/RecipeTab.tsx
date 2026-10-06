@@ -509,8 +509,8 @@ export function RecipeTab({
                 checked={unlock.params.includeGnss}
                 onChange={(e) => upsert({ ...unlock, params: { includeGnss: e.target.checked } })}
               />{' '}
-              Also in odm/etc/permissions/com.gnss.bds_preference.xml (PureCN does, xiaomi.eu does
-              not; the file selects BeiDou preference for GNSS)
+              Also in odm/etc/permissions/com.gnss.bds_preference.xml (global ROMs do, xiaomi.eu
+              does not; the file selects BeiDou preference for GNSS)
             </label>
           )}
         </div>
@@ -649,7 +649,7 @@ export function RecipeTab({
               onChange={(e) => {
                 if (e.target.checked) {
                   const ok = window.confirm(
-                    'Disable /data encryption like PureCN?\n\nYour apps, accounts and files will be stored UNENCRYPTED: anyone with the phone and a computer can read them. The device has to be formatted (flash_all.sh wipes data). Stock and xiaomi.eu keep encryption on.'
+                    'Disable /data encryption?\n\nYour apps, accounts and files will be stored UNENCRYPTED: anyone with the phone and a computer can read them. The device has to be formatted (flash_all.sh wipes data). Stock and xiaomi.eu keep encryption on.'
                   )
                   if (!ok) return
                   upsert({
@@ -662,7 +662,7 @@ export function RecipeTab({
               }}
               data-testid="disable-encryption"
             />{' '}
-            Disable /data encryption (PureCN). Off by default: stock and xiaomi.eu keep it.
+            Disable /data encryption. Off by default: stock and xiaomi.eu keep it.
           </label>
         </div>
       </Section>

@@ -73,7 +73,7 @@ export const OperationSchema = z.discriminatedUnion('type', [
     type: z.literal('import-from-rom'),
     enabled: z.boolean().default(true),
     params: z.object({
-      /** Another HyperKitchen project whose stock/fs is the source (e.g. an unpacked PureCN). */
+      /** Another HyperKitchen project whose stock/fs is the source (e.g. an unpacked reference ROM). */
       project: z.string().min(1),
       /** Tree paths to copy (files or whole directories). */
       paths: z.array(TreePath).min(1),
