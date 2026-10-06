@@ -8,8 +8,20 @@
 // the result is reported as unverified.
 
 export type SmaliRule =
-  /** After `sget-boolean vX, <field>`, insert `const/4 vX, <value>` (register preserved). */
-  | { kind: 'force-sget'; cls: string; method: string; field: string; value: 0 | 1; expect: number }
+  /**
+   * After `sget-boolean vX, <field>`, insert `const/4 vX, <value>` (register preserved). With
+   * `next`, only the reads whose next non-blank line matches that regex are forced (so one
+   * IS_GLOBAL_BUILD gate can be flipped without touching the others in the same method).
+   */
+  | {
+      kind: 'force-sget'
+      cls: string
+      method: string
+      field: string
+      value: 0 | 1
+      expect: number
+      next?: string
+    }
   /** Before `sput-boolean vX, <field>`, insert `const/4 vX, <value>`. */
   | { kind: 'force-sput'; cls: string; method: string; field: string; value: 0 | 1; expect: number }
   /** Before every `return vX`, insert `const/4 vX, <value>`. */
@@ -439,6 +451,29 @@ export const PATCH_SETS: PatchSet[] = [
             cls: 'com/miui/packageInstaller/L',
             method: 'X1(Lcom/miui/packageInstaller/model/AdModel;)Ljava/util/List;',
             returns: 'null'
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'settings-google-entry',
+    title: 'Show the Google entry in Settings on a CN build',
+    description:
+      'The CN Settings only adds the Google settings header (account, services, backup) when IS_GLOBAL_BUILD is true, so on a CN base the entry never appears even after Google apps are installed. This forces only that one gate in MiuiSettings.updateHeaderList (the read followed by the AddGoogleSettingsHeaders branch), leaving the other IS_GLOBAL_BUILD read in the same method alone. The entry is populated by GMS, so it shows once Google apps (GApps) are installed and stays hidden otherwise. ro.miui.has_gmscore is already 1 in stock.',
+    targets: [
+      {
+        path: 'system_ext/priv-app/Settings/Settings.apk',
+        verifiedSha256: '667d4f2b0c2e3aeb6c232fe229048f9917ae141969aaee243ccb70e3a320ef14',
+        rules: [
+          {
+            kind: 'force-sget',
+            cls: 'com/android/settings/MiuiSettings',
+            method: 'updateHeaderList(Ljava/util/List;)V',
+            field: GLOBAL,
+            value: 1,
+            next: '^\\s*if-eqz ',
+            expect: 1
           }
         ]
       }

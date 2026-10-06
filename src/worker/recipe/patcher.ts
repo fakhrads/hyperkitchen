@@ -88,13 +88,34 @@ export function applyRule(
   let count = 0
   switch (rule.kind) {
     case 'force-sget':
-      body = body.replace(
-        new RegExp(`^([ \\t]*)sget-boolean ([vp]\\d+), ${esc(rule.field)}[ \\t]*$`, 'gm'),
-        (all, ind, reg) => {
-          count++
-          return `${all}\n\n${ind}const/4 ${reg}, 0x${rule.value}`
+      if (rule.next) {
+        // Force only the reads whose next non-blank line matches `next` (e.g. a specific branch),
+        // leaving other reads of the same field in the method untouched.
+        const re = new RegExp(`^([ \\t]*)sget-boolean ([vp]\\d+), ${esc(rule.field)}[ \\t]*$`)
+        const nextRe = new RegExp(rule.next)
+        const lines = body.split('\n')
+        const out: string[] = []
+        for (let i = 0; i < lines.length; i++) {
+          out.push(lines[i])
+          const m = lines[i].match(re)
+          if (!m) continue
+          let j = i + 1
+          while (j < lines.length && lines[j].trim() === '') j++
+          if (j < lines.length && nextRe.test(lines[j])) {
+            count++
+            out.push('', `${m[1]}const/4 ${m[2]}, 0x${rule.value}`)
+          }
         }
-      )
+        body = out.join('\n')
+      } else {
+        body = body.replace(
+          new RegExp(`^([ \\t]*)sget-boolean ([vp]\\d+), ${esc(rule.field)}[ \\t]*$`, 'gm'),
+          (all, ind, reg) => {
+            count++
+            return `${all}\n\n${ind}const/4 ${reg}, 0x${rule.value}`
+          }
+        )
+      }
       break
     case 'force-sput':
       body = body.replace(

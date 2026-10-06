@@ -209,6 +209,45 @@ describe('smali rules', () => {
     expect(out).toContain(`    sget-boolean v1, ${F}\n\n    return-void`)
   })
 
+  it('force-sget with next forces only the read followed by the matching branch', () => {
+    const src = [
+      '.class public Lcom/x/C;',
+      '',
+      '.method public m()V',
+      '    .locals 1',
+      '',
+      '    sget-boolean v0, Lmiui/os/Build;->IS_GLOBAL_BUILD:Z',
+      '',
+      '    if-nez v0, :cond_0',
+      '',
+      '    sget-boolean v0, Lmiui/os/Build;->IS_GLOBAL_BUILD:Z',
+      '',
+      '    if-eqz v0, :cond_1',
+      '',
+      '    :cond_0',
+      '    :cond_1',
+      '    return-void',
+      '.end method',
+      ''
+    ].join('\n')
+    const out = applyRule(src, {
+      kind: 'force-sget',
+      cls: 'com/x/C',
+      method: 'm()V',
+      field: 'Lmiui/os/Build;->IS_GLOBAL_BUILD:Z',
+      value: 1,
+      next: '^\\s*if-eqz ',
+      expect: 1
+    })
+    // The if-nez read is untouched; only the if-eqz one gets the forced const.
+    expect(out).toContain(
+      '    sget-boolean v0, Lmiui/os/Build;->IS_GLOBAL_BUILD:Z\n\n    if-nez v0, :cond_0'
+    )
+    expect(out).toContain(
+      '    sget-boolean v0, Lmiui/os/Build;->IS_GLOBAL_BUILD:Z\n\n    const/4 v0, 0x1\n\n    if-eqz v0, :cond_1'
+    )
+  })
+
   it('fails when the match count differs', () => {
     expect(() =>
       applyRule(smali, {
