@@ -852,6 +852,18 @@ function BuildTab({
                 {b.partitions.length} partitions verified, super.img{' '}
                 {b.superVerified ? 'verified' : 'not verified'}
               </span>
+              {b.dataFormat && (
+                <span
+                  className={`badge ${b.dataFormat.level === 'not-needed' ? 'ok' : b.dataFormat.level === 'first-install' ? 'warn' : 'error'}`}
+                  title={b.dataFormat.reasons.join('; ')}
+                >
+                  {b.dataFormat.level === 'not-needed'
+                    ? 'dirty flash OK'
+                    : b.dataFormat.level === 'first-install'
+                      ? 'format on first install'
+                      : 'format every install'}
+                </span>
+              )}
               <button onClick={() => void window.hk.builds.reveal(projectPath, b.id)}>
                 Show in folder
               </button>

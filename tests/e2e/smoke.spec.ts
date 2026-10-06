@@ -232,6 +232,14 @@ test('adds an About phone spec card entry through the form', async () => {
   await expect(page.getByTestId('recipe-ops')).toContainText('1 region entries')
 })
 
+test('sets a default language and a feature toggle', async () => {
+  await page.getByTestId('tab-recipe').click()
+  await page.getByTestId('tweak-locale').selectOption('en-US')
+  await expect(page.getByTestId('recipe-ops')).toContainText('set-default-locale')
+  await page.getByTestId('tweak-disable-ota').check()
+  await expect(page.getByTestId('recipe-ops')).toContainText('disable-ota')
+})
+
 test('deletes a build from the list', async () => {
   await page.getByTestId('tab-build').click()
   const buildsDir = join(tmp, 'projects', 'onyx unpack', 'build')

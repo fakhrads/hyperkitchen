@@ -183,6 +183,8 @@ export interface BuildInfo {
   recipe?: Recipe
   /** What each enabled recipe operation changed. */
   operations: OperationReport[]
+  /** Whether a dirty flash (keep data) is safe, or a data format is needed. */
+  dataFormat: { level: 'not-needed' | 'first-install' | 'required'; reasons: string[] }
   /** Privileged permission allowlist check of the built trees. */
   privapp?: { enforced: boolean; appsChecked: number; violations: string[] }
   partitions: BuildPartition[]

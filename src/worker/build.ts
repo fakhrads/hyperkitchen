@@ -239,6 +239,7 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
     verityChanges: [],
     recipeOperations,
     recipe,
+    dataFormat: { level: 'not-needed', reasons: [] },
     operations: [],
     partitions: [],
     superVerified: false,
@@ -298,6 +299,33 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
         progress: (f, step) => stages.report(2, f, step)
       })
       for (const r of info.operations) info.warnings.push(...r.warnings.map((w) => `${r.id}: ${w}`))
+
+      // Dirty-flash analysis: what forces a data format rather than a keep-data upgrade.
+      const reasons: string[] = []
+      let level: BuildInfo['dataFormat']['level'] = 'not-needed'
+      if (recipe.operations.some((o) => o.enabled && o.type === 'disable-encryption')) {
+        level = 'required'
+        reasons.push(
+          'encryption is disabled; /data must be formatted so it is re-created unencrypted'
+        )
+      }
+      const signerWarn = info.operations
+        .flatMap((r) => r.warnings)
+        .filter((w) => /data format|another signer|signed differently|re-?sign/i.test(w))
+      if (signerWarn.length && level !== 'required') {
+        level = 'first-install'
+        reasons.push(
+          'an app was replaced with one signed by a different key (e.g. the Play Store stub); the first install from the CN base needs a data format, later dirty flashes are fine'
+        )
+      }
+      info.dataFormat = { level, reasons }
+      log(
+        level === 'not-needed'
+          ? 'dirty flash (keep data) is safe'
+          : level === 'first-install'
+            ? 'first install needs a data format; later dirty flashes are fine'
+            : 'every install needs a data format'
+      )
     }
 
     // Privileged permission allowlists: an app on a system partition that requests a privileged
@@ -631,6 +659,12 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
         `Stock input: ${stock.input.path}`,
         '',
         'Bootloader must be UNLOCKED. Never relock with this ROM installed.',
+        '',
+        info.dataFormat.level === 'not-needed'
+          ? 'Dirty flash OK: install_upgrade keeps your data.'
+          : info.dataFormat.level === 'first-install'
+            ? `First install needs a data format (${info.dataFormat.reasons.join('; ')}); after that, install_upgrade keeps data.`
+            : `This build needs a data format on every install (${info.dataFormat.reasons.join('; ')}).`,
         '',
         'From a computer (fastboot is included in bin/):',
         '  macOS:   ./macos_install_upgrade.sh            keeps user data',

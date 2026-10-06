@@ -143,6 +143,11 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   (in Settings); recipes pick it from a dropdown instead of browsing each time.
   Files stay on disk, referenced by path and hash; nothing is bundled or
   downloaded.
+- **System defaults and tweaks**: set the default language (ro.product.locale)
+  and toggle common HyperOS-mod choices (disable OTA updates, remove analytics,
+  remove the GetApps store), each shown as a plain debloat/set-props operation.
+- **Dirty-flash check**: every build reports whether it can be flashed over an
+  existing install keeping data, or needs a data format (and why).
 - **About phone spec card**: a form that writes product/etc/device_info.json
   (CPU, battery, camera, screen) per region; stock CN has no such file, so the
   card is empty until filled. Defaults can be loaded from a reference ROM in the

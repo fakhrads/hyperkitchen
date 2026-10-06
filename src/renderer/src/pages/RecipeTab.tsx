@@ -112,6 +112,10 @@ export function RecipeTab({
   const dirty = useMemo(() => recipe !== null && JSON.stringify(recipe) !== saved, [recipe, saved])
   if (!recipe) return <div className="empty">{error ?? 'Loading recipe…'}</div>
 
+  const localeFile = (() => {
+    const hit = stock.props.find((x) => x.props['ro.product.locale'])
+    return hit ? `${hit.partition}/${hit.path}` : 'system/system/build.prop'
+  })()
   const baseSdk = (() => {
     const p =
       stock.props.find((x) => x.partition === 'system' && x.path === 'system/build.prop')?.props ??
@@ -250,6 +254,21 @@ export function RecipeTab({
           </div>
         ))}
       </div>
+
+      <h2>System defaults and tweaks</h2>
+      <SystemTweaks
+        ops={ops}
+        localeFile={localeFile}
+        currentLocale={
+          stock.props.find((x) => x.props['ro.product.locale'])?.props['ro.product.locale'] ?? null
+        }
+        onChange={(add, removeIds) =>
+          set([
+            ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
+            ...add
+          ])
+        }
+      />
 
       <h2>Patches (battery, notifications)</h2>
       <div className="panel">
@@ -1373,6 +1392,143 @@ function AppReplace({
         </table>
       )}
       {error && <p className="error-text">{error}</p>}
+    </div>
+  )
+}
+
+// Common locales for the default-language control (BCP-47 as ro.product.locale expects).
+const LOCALES: Array<[string, string]> = [
+  ['en-US', 'English (US)'],
+  ['en-GB', 'English (UK)'],
+  ['id-ID', 'Indonesian'],
+  ['zh-CN', 'Chinese (Simplified)'],
+  ['zh-TW', 'Chinese (Traditional)'],
+  ['ru-RU', 'Russian'],
+  ['es-ES', 'Spanish'],
+  ['pt-BR', 'Portuguese (Brazil)'],
+  ['de-DE', 'German'],
+  ['fr-FR', 'French'],
+  ['ja-JP', 'Japanese'],
+  ['ko-KR', 'Korean'],
+  ['vi-VN', 'Vietnamese'],
+  ['th-TH', 'Thai'],
+  ['tr-TR', 'Turkish'],
+  ['ar-EG', 'Arabic']
+]
+
+const SET_LOCALE = 'set-default-locale'
+
+// Toggles that HyperOS modders commonly use, each mapping to a debloat of standard packages.
+// These package names are the same across HyperOS CN devices.
+const TWEAKS: Array<{ id: string; title: string; hint: string; packages: string[] }> = [
+  {
+    id: 'disable-ota',
+    title: 'Disable system (OTA) updates',
+    hint: 'Removes the Updater app (com.android.updater). Recommended on a modded ROM: an OTA could overwrite the mod or fail to apply.',
+    packages: ['com.android.updater']
+  },
+  {
+    id: 'disable-analytics',
+    title: 'Remove usage analytics',
+    hint: 'Removes AnalyticsCore (com.miui.analytics), which reports usage data. MiSight is left alone because it shares the system user id and removing it can break boot.',
+    packages: ['com.miui.analytics']
+  },
+  {
+    id: 'disable-getapps-ads',
+    title: 'Remove GetApps store',
+    hint: 'Removes the Mi GetApps store (com.xiaomi.market), a common source of app ads and auto-installs. Leave on if you use it.',
+    packages: ['com.xiaomi.market']
+  }
+]
+
+function SystemTweaks({
+  ops,
+  localeFile,
+  currentLocale,
+  onChange
+}: {
+  ops: Operation[]
+  localeFile: string
+  currentLocale: string | null
+  onChange: (add: Operation[], removeIds: string[]) => void
+}): React.JSX.Element {
+  const localeOp = ops.find((o) => o.id === SET_LOCALE)
+  const chosen =
+    localeOp?.type === 'set-props' ? (localeOp.params.set['ro.product.locale'] ?? '') : ''
+  const setLocale = (value: string): void => {
+    if (!value) {
+      onChange([], [SET_LOCALE])
+      return
+    }
+    onChange(
+      [
+        {
+          id: SET_LOCALE,
+          type: 'set-props',
+          enabled: true,
+          params: { file: localeFile, set: { 'ro.product.locale': value }, remove: [] }
+        }
+      ],
+      []
+    )
+  }
+  return (
+    <div className="panel" data-testid="tweaks-panel">
+      <div className="row">
+        <strong>Default language</strong>
+        <select
+          value={chosen}
+          onChange={(e) => setLocale(e.target.value)}
+          data-testid="tweak-locale"
+        >
+          <option value="">Keep ROM default{currentLocale ? ` (${currentLocale})` : ''}</option>
+          {LOCALES.map(([code, label]) => (
+            <option key={code} value={code}>
+              {label} ({code})
+            </option>
+          ))}
+        </select>
+        <InfoDot title="Default language">
+          <p>
+            Sets <code>ro.product.locale</code> in {localeFile}, the language the device starts in
+            before the user picks one. Users can still change it in Settings.
+          </p>
+          <p>It does not install extra language resources; those come with the ROM.</p>
+        </InfoDot>
+      </div>
+      <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+        {TWEAKS.map((t) => {
+          const op = ops.find((o) => o.id === t.id)
+          return (
+            <label key={t.id} style={{ display: 'block' }}>
+              <input
+                type="checkbox"
+                checked={!!op?.enabled}
+                onChange={(e) =>
+                  e.target.checked
+                    ? onChange(
+                        [
+                          {
+                            id: t.id,
+                            type: 'debloat',
+                            enabled: true,
+                            params: { packages: t.packages, force: false }
+                          }
+                        ],
+                        []
+                      )
+                    : onChange([], [t.id])
+                }
+                data-testid={`tweak-${t.id}`}
+              />{' '}
+              <strong>{t.title}</strong>
+              <div className="sub" style={{ margin: '2px 0 0 22px' }}>
+                {t.hint}
+              </div>
+            </label>
+          )
+        })}
+      </div>
     </div>
   )
 }
