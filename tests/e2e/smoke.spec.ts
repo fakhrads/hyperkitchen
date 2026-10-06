@@ -193,8 +193,18 @@ test('edits the recipe as JSON and reorders operations', async () => {
   const recipe = {
     schema: 1,
     operations: [
-      { id: 'a-remove', type: 'remove-paths', enabled: true, params: { paths: ['product/app/Foo'] } },
-      { id: 'b-props', type: 'set-props', enabled: true, params: { file: 'product/etc/build.prop', set: { 'ro.x': '1' }, remove: [] } }
+      {
+        id: 'a-remove',
+        type: 'remove-paths',
+        enabled: true,
+        params: { paths: ['product/app/Foo'] }
+      },
+      {
+        id: 'b-props',
+        type: 'set-props',
+        enabled: true,
+        params: { file: 'product/etc/build.prop', set: { 'ro.x': '1' }, remove: [] }
+      }
     ]
   }
   await page.getByTestId('recipe-json').fill(JSON.stringify(recipe))
