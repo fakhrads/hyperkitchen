@@ -3,13 +3,19 @@
 
 import type { Operation } from './recipe'
 
-/** Apps PureCN removes from stock OS3.0.305.0.WOLCNXM, minus core apps and Play Store parts. */
+// The exact packages PureCN removes from stock OS3.0.305.0.WOLCNXM, verified by diffing the
+// unpacked onyx-stock and onyx-purecn trees (not guessed from names). Theme manager
+// (com.android.thememanager) and Weather (com.miui.weather2) are NOT here: PureCN keeps both,
+// it only relocates them (product/app or data-app to product/priv-app), so a subtractive
+// debloat must leave them in place. The CN Theme STORE (com.miui.themestore) is genuinely
+// removed. GMS-swap parts (com.android.vending updater, the gmsconfig overlay) are handled by
+// the GApps step, not here. The two core-UID removals go in PURECN_DEBLOAT_CORE below.
+/** Apps PureCN removes from stock OS3.0.305.0.WOLCNXM, minus core apps and GMS-swap parts. */
 export const PURECN_DEBLOAT = [
   'android.miui.poco.launcher.res',
   'com.android.browser',
   'com.android.email',
   'com.android.quicksearchbox',
-  'com.android.thememanager',
   'com.android.updater',
   'com.baidu.input_mi',
   'com.duokan.phone.remotecontroller',
@@ -41,7 +47,6 @@ export const PURECN_DEBLOAT = [
   'com.miui.voiceassistoverlay',
   'com.miui.voicetrigger',
   'com.miui.wallpaper.overlay',
-  'com.miui.weather2',
   'com.sohu.inputmethod.sogou.xiaomi',
   'com.unionpay.tsmservice.mi',
   'com.xiaomi.ab',
