@@ -67,14 +67,19 @@ export const CN_BLOAT = [
 /** Safe to remove even though they share a core UID; kept as a separate, forced operation. */
 export const CN_BLOAT_CORE = ['com.miui.tsmclient', 'com.xiaomi.aiasst.service']
 
-/** The stock smali patch sets this kitchen applies for a CN-to-global daily driver. */
+/**
+ * The stock smali patch sets this kitchen applies by default for a CN-to-global daily driver:
+ * the framework/battery/notification fixes plus the CN app patches that every build wants
+ * (installer-no-ads). Each is still a checkbox in the recipe, so any one can be turned off.
+ */
 export const CN_GLOBAL_PATCH_SETS = [
   'cn-notifications',
   'global-shortcuts',
   'greezer-gms',
   'no-drm-broadcast',
   'powerkeeper-gms',
-  'joyose-off'
+  'joyose-off',
+  'installer-no-ads'
 ]
 
 /** Full cleanup: debloat (incl. forced core apps), CN GMS unlock with GNSS, all patch sets. */

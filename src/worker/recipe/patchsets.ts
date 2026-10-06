@@ -14,8 +14,11 @@ export type SmaliRule =
   | { kind: 'force-sput'; cls: string; method: string; field: string; value: 0 | 1; expect: number }
   /** Before every `return vX`, insert `const/4 vX, <value>`. */
   | { kind: 'force-return'; cls: string; method: string; value: 0 | 1; expect: number }
-  /** Replace the whole body: `.locals 0` plus return-void, or `const/4 p0, v` + return p0. */
-  | { kind: 'stub'; cls: string; method: string; returns: 'void' | 0 | 1 }
+  /**
+   * Replace the whole body: `.locals 0` + return-void, `const/4 p0, v` + return p0, or (for an
+   * object-returning method) `const/4 v0, 0x0` + return-object v0 when `returns` is 'null'.
+   */
+  | { kind: 'stub'; cls: string; method: string; returns: 'void' | 0 | 1 | 'null' }
   /** Delete lines matching `pattern` (a regex over consecutive lines). */
   | { kind: 'delete'; cls: string; method: string; pattern: string; expect: number }
   /** Replace a substring inside every const-string literal of the whole file. */
@@ -416,6 +419,26 @@ export const PATCH_SETS: PatchSet[] = [
             cls: 'com/android/server/wm/WindowManagerServiceImpl',
             method: 'notAllowCaptureDisplay(Lcom/android/server/wm/RootWindowContainer;I)Z',
             returns: 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'installer-no-ads',
+    title: 'Remove the recommended-apps ads in the package installer',
+    description:
+      'Stops the MIUI package installer showing the "recommended apps" list on the install screen. It stubs L.X1(AdModel), the method that turns the ad model into the list of recommendation cards, to return null. The caller already skips the ad block when that list is null (the same path used when no ad data is fetched), so nothing else changes and installing works as before.',
+    targets: [
+      {
+        path: 'product/priv-app/MIUIPackageInstaller/MIUIPackageInstaller.apk',
+        verifiedSha256: '866cc115a6a2308f64c80ba0d44d584ac3c5254508a6958d5fe801a0c8181d60',
+        rules: [
+          {
+            kind: 'stub',
+            cls: 'com/miui/packageInstaller/L',
+            method: 'X1(Lcom/miui/packageInstaller/model/AdModel;)Ljava/util/List;',
+            returns: 'null'
           }
         ]
       }

@@ -60,15 +60,21 @@ function methodRange(text: string, sig: string): { start: number; end: number } 
   return { start, end }
 }
 
-function stubBody(header: string, returns: 'void' | 0 | 1): string {
-  if (returns === 'void') return `${header}\n    .locals 0\n\n    return-void`
+function stubBody(header: string, returns: 'void' | 0 | 1 | 'null', annotations: string[]): string {
+  // baksmali prints method annotations right after .locals/.registers and before the code, so
+  // the stub keeps them there (appending after the return would not match the rebuilt dex).
+  const ann = annotations.length ? '\n' + annotations.join('\n') : ''
+  if (returns === 'void') return `${header}\n    .locals 0${ann}\n\n    return-void`
+  // A null object: const/4 v0, 0x0 then return-object v0 (valid for static and instance methods).
+  if (returns === 'null')
+    return `${header}\n    .locals 1${ann}\n\n    const/4 v0, 0x0\n\n    return-object v0`
   const isStatic = /\bstatic\b/.test(header)
   const params = (header.match(/\(([^)]*)\)/) as RegExpMatchArray)[1]
   // An instance method always has p0 (this); a static one only if it takes parameters.
   if (!isStatic || params.length) {
-    return `${header}\n    .locals 0\n\n    const/4 p0, 0x${returns}\n\n    return p0`
+    return `${header}\n    .locals 0${ann}\n\n    const/4 p0, 0x${returns}\n\n    return p0`
   }
-  return `${header}\n    .locals 1\n\n    const/4 v0, 0x${returns}\n\n    return v0`
+  return `${header}\n    .locals 1${ann}\n\n    const/4 v0, 0x${returns}\n\n    return v0`
 }
 
 /** Apply one rule to a smali text; returns the new text. Throws on a count mismatch. */
@@ -124,10 +130,9 @@ export function applyRule(
       })
       break
     case 'stub': {
-      // Keep annotations (e.g. Throws); replace everything else.
+      // Keep annotations (e.g. Throws, Signature); replace everything else.
       const annotations = body.match(/^\s*\.annotation[\s\S]*?^\s*\.end annotation\s*$/gm) ?? []
-      body =
-        stubBody(header, rule.returns) + (annotations.length ? '\n' + annotations.join('\n') : '')
+      body = stubBody(header, rule.returns, annotations)
       count = 1
       break
     }

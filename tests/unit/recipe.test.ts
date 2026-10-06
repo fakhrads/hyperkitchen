@@ -258,6 +258,40 @@ describe('smali rules', () => {
     expect(d).toContain('.method public g()V\n    .locals 0\n\n    return-void\n.end method')
   })
 
+  it('stubs an object method to null, keeping annotations before the code (baksmali order)', () => {
+    const src = [
+      '.class public Lcom/x/B;',
+      '',
+      '.method public final load(Ljava/lang/String;)Ljava/util/List;',
+      '    .locals 8',
+      '    .annotation system Ldalvik/annotation/Signature;',
+      '        value = {',
+      '            "(Ljava/lang/String;)",',
+      '            "Ljava/util/List<*>;"',
+      '        }',
+      '    .end annotation',
+      '',
+      '    new-instance v0, Ljava/util/ArrayList;',
+      '',
+      '    return-object v0',
+      '.end method',
+      ''
+    ].join('\n')
+    const out = normalizeSmali(
+      applyRule(src, {
+        kind: 'stub',
+        cls: 'com/x/B',
+        method: 'load(Ljava/lang/String;)Ljava/util/List;',
+        returns: 'null'
+      })
+    )
+    // .locals, then the annotation, then the null return: the order baksmali reprints, so the
+    // rebuild gate matches (blank lines are ignored by normalizeSmali).
+    expect(out).toContain('    .locals 1\n    .annotation system Ldalvik/annotation/Signature;')
+    expect(out).toContain('    .end annotation\n    const/4 v0, 0x0\n    return-object v0')
+    expect(out).not.toContain('new-instance')
+  })
+
   it('normalises only assembler artefacts in the rebuild gate', () => {
     const a =
       '    .locals 1\n\n    nop\n\n    :sswitch_data_0\n.field private static final x:Z = false\n'
