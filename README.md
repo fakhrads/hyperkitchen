@@ -103,7 +103,7 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   both slots and `super`, reads every write back, and never touches the
   recovery partition or the bootloader firmware.
 - **Recipe**: debloat, build.prop edits, CN Google services unlock and smali
-  patch sets (notifications, Greezer, PowerKeeper, Joyose), with a PureCN
+  patch sets (notifications, Greezer, PowerKeeper, Joyose), with a full-cleanup
   preset, plus an optional, default-off FLAG_SECURE patch that lets you take
   screenshots in apps that block them (it weakens a protection those apps opt
   into). Smali patches keep the original APK signature blocks; Android does not
@@ -158,14 +158,15 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
 - **About phone spec card**: a form that writes product/etc/device_info.json
   (CPU, battery, camera, screen) per region; stock CN has no such file, so the
   card is empty until filled. Defaults can be loaded from a reference ROM in the
-  materials library (e.g. PureCN, which ships the real values).
+  materials library (a global ROM that ships the real values).
 - **Recipe editor**: a sticky header with a live summary (apps patched, removed,
   GApps, language, dirty-flash status), collapsible section cards, an operations
   table with enable/remove/reorder, and a validated raw JSON editor.
 - **Templates**: a ready-made recipe applied in one click ("CN to global daily
-  driver" uses only files already in the ROM; "PureCN" reproduces the verified
-  PureCN changes). Recipes export to and import from a JSON file. Every build
-  copies the exact recipe it used into `build/<id>/recipe.json`.
+  driver" uses only files already in the ROM; "Full debloat + patches" applies
+  the debloat, forced core debloat, GMS unlock and all six patch sets). Recipes
+  export to and import from a JSON file. Every build copies the exact recipe it
+  used into `build/<id>/recipe.json`.
 
 - **Base Android version** is shown for the unpacked ROM (release, API level,
   security patch), read from the system build.prop.
@@ -188,6 +189,13 @@ or disk image works; exFAT is not suitable (case-insensitive, no hard links,
 - Not affiliated with, endorsed by or connected to Xiaomi, Google or any ROM
   project mentioned here. ROM images, Google apps and Xiaomi framework files
   are not included and must not be committed to this repository.
+
+## Credits
+
+The verity edit, the debloat set and the smali patch sets were confirmed by
+comparing stock against the PureCN onyx ROM, used as a reference with its
+author's permission. No files are copied from it: the kitchen applies its own
+changes to stock. Thanks to the PureCN author.
 
 ## License
 
