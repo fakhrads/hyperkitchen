@@ -186,3 +186,28 @@ test('opens the app editor from the APK list', async () => {
   await expect(page.getByTestId('mod-target')).not.toContainText('com.example.test')
   await expect(page.getByTestId('mod-create')).toBeDisabled()
 })
+
+test('edits the recipe as JSON and reorders operations', async () => {
+  await page.getByTestId('tab-recipe').click()
+  await page.getByTestId('recipe-edit-json').click()
+  const recipe = {
+    schema: 1,
+    operations: [
+      { id: 'a-remove', type: 'remove-paths', enabled: true, params: { paths: ['product/app/Foo'] } },
+      { id: 'b-props', type: 'set-props', enabled: true, params: { file: 'product/etc/build.prop', set: { 'ro.x': '1' }, remove: [] } }
+    ]
+  }
+  await page.getByTestId('recipe-json').fill(JSON.stringify(recipe))
+  await page.getByTestId('recipe-json-apply').click()
+  await expect(page.getByTestId('recipe-ops')).toContainText('a-remove')
+  await expect(page.getByTestId('recipe-ops')).toContainText('b-props')
+  // Reorder: move the second op up, then it must appear before the first.
+  await page.getByTestId('op-up-b-props').click()
+  const firstId = page.getByTestId('recipe-ops').locator('tbody tr').first()
+  await expect(firstId).toContainText('b-props')
+  // Invalid JSON is refused with a message, recipe unchanged.
+  await page.getByTestId('recipe-edit-json').click()
+  await page.getByTestId('recipe-json').fill('{ not json')
+  await page.getByTestId('recipe-json-apply').click()
+  await expect(page.getByText(/not valid JSON/)).toBeVisible()
+})

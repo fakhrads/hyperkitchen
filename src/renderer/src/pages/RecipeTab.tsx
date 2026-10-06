@@ -6,7 +6,7 @@ import {
   TEMPLATES,
   type ImportGroup
 } from '../../../shared/presets'
-import type { Operation, Recipe } from '../../../shared/recipe'
+import { RecipeSchema, type Operation, type Recipe } from '../../../shared/recipe'
 import type { StockInfo } from '../../../shared/types'
 import { errorText, formatSize } from '../format'
 
@@ -110,6 +110,14 @@ export function RecipeTab({
     setRecipe({ ...recipe, operations: next })
   }
   const remove = (id: string): void => set(ops.filter((o) => o.id !== id))
+  const moveOp = (id: string, dir: -1 | 1): void => {
+    const i = ops.findIndex((o) => o.id === id)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= ops.length) return
+    const next = [...ops]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    set(next)
+  }
   const find = (id: string): Operation | undefined => ops.find((o) => o.id === id)
   const patchOn = (setId: string): Operation | undefined =>
     ops.find((o) => o.type === 'patch' && o.params.patchSet === setId)
@@ -498,11 +506,12 @@ export function RecipeTab({
             <th>Id</th>
             <th>Type</th>
             <th>Details</th>
+            <th>Order</th>
             <th />
           </tr>
         </thead>
         <tbody>
-          {ops.map((o) => (
+          {ops.map((o, i) => (
             <tr key={o.id}>
               <td>
                 <input
@@ -514,14 +523,120 @@ export function RecipeTab({
               <td className="mono">{o.id}</td>
               <td>{o.type}</td>
               <td className="mono">{summary(o)}</td>
+              <td style={{ whiteSpace: 'nowrap' }}>
+                <button
+                  disabled={i === 0}
+                  title="Move up"
+                  onClick={() => moveOp(o.id, -1)}
+                  data-testid={`op-up-${o.id}`}
+                >
+                  ↑
+                </button>{' '}
+                <button
+                  disabled={i === ops.length - 1}
+                  title="Move down"
+                  onClick={() => moveOp(o.id, 1)}
+                  data-testid={`op-down-${o.id}`}
+                >
+                  ↓
+                </button>
+              </td>
               <td>
                 <button onClick={() => remove(o.id)}>Remove</button>
               </td>
             </tr>
           ))}
+          {!ops.length && (
+            <tr>
+              <td colSpan={6} className="empty">
+                No operations. Use a template above, or add one in the sections, or edit the JSON
+                below.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
+      <p className="sub" style={{ margin: '6px 0 0' }}>
+        File operations (debloat, imports, GApps, media, props) run top to bottom; smali patches and
+        app mods run after them. Order matters when one operation depends on another.
+      </p>
+
+      <RawEditor recipe={recipe} onApply={(r) => setRecipe(r)} />
     </>
+  )
+}
+
+function RawEditor({
+  recipe,
+  onApply
+}: {
+  recipe: Recipe
+  onApply: (r: Recipe) => void
+}): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  // Load the current recipe into the box each time it is opened.
+  const openEditor = (): void => {
+    setText(JSON.stringify(recipe, null, 2))
+    setError(null)
+    setOpen(true)
+  }
+  const apply = (): void => {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(text)
+    } catch (e) {
+      setError(`not valid JSON: ${(e as Error).message}`)
+      return
+    }
+    const result = RecipeSchema.safeParse(parsed)
+    if (!result.success) {
+      const first = result.error.issues[0]
+      setError(`invalid recipe: ${first.path.join('.') || '(root)'}: ${first.message}`)
+      return
+    }
+    const ids = result.data.operations.map((o) => o.id)
+    if (new Set(ids).size !== ids.length) {
+      setError('operation ids must be unique')
+      return
+    }
+    setError(null)
+    setOpen(false)
+    onApply(result.data)
+  }
+  return (
+    <div style={{ marginTop: 14 }}>
+      {!open ? (
+        <button onClick={openEditor} data-testid="recipe-edit-json">
+          Edit recipe as JSON
+        </button>
+      ) : (
+        <div className="panel">
+          <div className="row" style={{ marginBottom: 6 }}>
+            <strong>Edit recipe as JSON</strong>
+            <span className="sub" style={{ margin: 0 }}>
+              Changes apply to the editor; use Save above to write recipe.json.
+            </span>
+          </div>
+          <textarea
+            className="mono"
+            spellCheck={false}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            style={{ width: '100%', height: 360, whiteSpace: 'pre' }}
+            data-testid="recipe-json"
+          />
+          {error && <p className="error-text">{error}</p>}
+          <div className="row" style={{ marginTop: 6 }}>
+            <button className="primary" onClick={apply} data-testid="recipe-json-apply">
+              Apply
+            </button>
+            <button onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

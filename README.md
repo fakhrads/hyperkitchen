@@ -134,6 +134,9 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   that you run. A re-signed app gets no store or OTA updates and cannot replace
   a Xiaomi-signed system app that is still in the ROM.
 
+- **Recipe editor**: structured sections per change, an operations table with
+  enable, remove and reorder, and a raw JSON editor (validated) for the whole
+  recipe.
 - **Templates**: a ready-made recipe applied in one click ("CN to global daily
   driver" uses only files already in the ROM; "PureCN" reproduces the verified
   PureCN changes). Recipes export to and import from a JSON file. Every build
