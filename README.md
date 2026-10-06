@@ -152,9 +152,9 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   (CPU, battery, camera, screen) per region; stock CN has no such file, so the
   card is empty until filled. Defaults can be loaded from a reference ROM in the
   materials library (e.g. PureCN, which ships the real values).
-- **Recipe editor**: structured sections per change, an operations table with
-  enable, remove and reorder, and a raw JSON editor (validated) for the whole
-  recipe.
+- **Recipe editor**: a sticky header with a live summary (apps patched, removed,
+  GApps, language, dirty-flash status), collapsible section cards, an operations
+  table with enable/remove/reorder, and a validated raw JSON editor.
 - **Templates**: a ready-made recipe applied in one click ("CN to global daily
   driver" uses only files already in the ROM; "PureCN" reproduces the verified
   PureCN changes). Recipes export to and import from a JSON file. Every build

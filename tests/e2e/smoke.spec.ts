@@ -190,6 +190,7 @@ test('opens the app editor from the APK list', async () => {
 
 test('edits the recipe as JSON and reorders operations', async () => {
   await page.getByTestId('tab-recipe').click()
+  await page.getByTestId('section-operations').click()
   await page.getByTestId('recipe-edit-json').click()
   const recipe = {
     schema: 1,
@@ -225,6 +226,7 @@ test('edits the recipe as JSON and reorders operations', async () => {
 
 test('adds an About phone spec card entry through the form', async () => {
   await page.getByTestId('tab-recipe').click()
+  await page.getByTestId('section-branding').click()
   await page.getByTestId('speccard-add').click()
   await page.getByTestId('speccard-hwc-0').fill('GL')
   await page.getByTestId('speccard-basic-cpu-0').fill('Snapdragon 8s Gen 4')

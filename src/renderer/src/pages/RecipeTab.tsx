@@ -184,9 +184,104 @@ export function RecipeTab({
   const unlock = find(UNLOCK)
   const encryption = find(ENCRYPTION)
 
+  // Live summary of what this recipe will do, shown in the sticky header.
+  const enabled = ops.filter((o) => o.enabled)
+  const shortName = (p: string): string =>
+    p
+      .split('/')
+      .pop()
+      ?.replace(/\.(apk|jar)$/, '') ?? p
+  const patched = [
+    ...new Set(
+      enabled
+        .filter((o): o is Extract<Operation, { type: 'patch' }> => o.type === 'patch')
+        .flatMap((o) => catalog.find((c) => c.id === o.params.patchSet)?.targets ?? [])
+        .map(shortName)
+    )
+  ]
+  const gappsOn = enabled.some((o) => o.type === 'gapps')
+  const signerChange = enabled.some((o) => o.type === 'gapps' && o.params.replaceDifferentSigner)
+  const encryptionOff = enabled.some((o) => o.type === 'disable-encryption')
+  const localeNow = enabled.find((o) => o.id === SET_LOCALE)
+  const recipeSummary = {
+    patched,
+    removed: enabled.reduce(
+      (n, o) =>
+        n +
+        (o.type === 'debloat'
+          ? o.params.packages.length
+          : o.type === 'remove-paths'
+            ? o.params.paths.length
+            : 0),
+      0
+    ),
+    gapps: gappsOn,
+    imported: enabled
+      .filter(
+        (o): o is Extract<Operation, { type: 'import-from-rom' }> => o.type === 'import-from-rom'
+      )
+      .reduce((n, o) => n + o.params.paths.length, 0),
+    replaced: enabled.filter((o) => o.type === 'app-replace').length,
+    language:
+      localeNow?.type === 'set-props' ? (localeNow.params.set['ro.product.locale'] ?? null) : null,
+    dirtyFlash: encryptionOff || signerChange ? 'format' : 'ok',
+    dirtyReason: encryptionOff
+      ? 'encryption is off: /data must be formatted once when you adopt this build'
+      : signerChange
+        ? 'the Play Store stub is replaced by one signed differently: format once on first install'
+        : 'no operation forces a data format'
+  }
+
+  // A short status chip for each collapsible section.
+  const sectionChip = (id: string): string | null => {
+    switch (id) {
+      case 'system': {
+        const n = enabled.filter((o) =>
+          [
+            'set-default-locale',
+            'disable-ota',
+            'disable-analytics',
+            'disable-getapps-ads'
+          ].includes(o.id)
+        ).length
+        return n ? `${n} on` : null
+      }
+      case 'patches': {
+        const n = enabled.filter(
+          (o) => o.type === 'patch' && o.id !== BRANDING_PATCH && o.id !== `patch-${BRANDING_PATCH}`
+        ).length
+        return n ? `${n} on` : null
+      }
+      case 'branding': {
+        const n = [BRANDING_PROP_OP, `patch-${BRANDING_PATCH}`, MEDIA_OP, SPEC_CARD_OP].filter(
+          (id2) => enabled.some((o) => o.id === id2)
+        ).length
+        return n ? `${n} on` : null
+      }
+      case 'google':
+        return enabled.some((o) => o.type === 'unlock-cn-gms') ? 'on' : null
+      case 'appreplace': {
+        const n = enabled.filter((o) => o.type === 'app-replace').length
+        return n ? `${n}` : null
+      }
+      case 'gapps':
+        return gappsOn ? 'on' : null
+      case 'import':
+        return recipeSummary.imported ? `${recipeSummary.imported} paths` : null
+      case 'debloat':
+        return userDebloat?.type === 'debloat' ? `${userDebloat.params.packages.length} pkg` : null
+      case 'encryption':
+        return encryptionOff ? 'off' : null
+      case 'operations':
+        return `${enabled.length}/${ops.length}`
+      default:
+        return null
+    }
+  }
+
   return (
     <>
-      <div className="panel" data-testid="recipe-panel">
+      <div className="panel recipe-sticky" data-testid="recipe-panel">
         <div className="row">
           <strong>Recipe</strong>
           <span className="sub" style={{ margin: 0 }}>
@@ -208,6 +303,29 @@ export function RecipeTab({
             Save
           </button>
         </div>
+        <div className="recipe-summary" data-testid="recipe-summary">
+          <span>
+            <strong>{recipeSummary.patched.length}</strong> apps patched
+            {recipeSummary.patched.length ? ` (${recipeSummary.patched.join(', ')})` : ''}
+          </span>
+          <span>
+            <strong>{recipeSummary.removed}</strong> removed
+          </span>
+          {recipeSummary.gapps && <span className="badge ok">GApps</span>}
+          {recipeSummary.imported > 0 && <span>{recipeSummary.imported} imported</span>}
+          {recipeSummary.replaced > 0 && <span>{recipeSummary.replaced} app replaced</span>}
+          {recipeSummary.language && (
+            <span>
+              language <strong>{recipeSummary.language}</strong>
+            </span>
+          )}
+          <span
+            className={`badge ${recipeSummary.dirtyFlash === 'ok' ? 'ok' : 'warn'}`}
+            title={recipeSummary.dirtyReason}
+          >
+            {recipeSummary.dirtyFlash === 'ok' ? 'dirty-flash OK' : 'format on first install'}
+          </span>
+        </div>
         <p className="sub" style={{ margin: '8px 0 0' }}>
           Operations run on a fresh copy of the stock ROM at every build. Changes are not tested on
           a device until you boot the result.
@@ -215,421 +333,479 @@ export function RecipeTab({
         {error && <p className="error-text">{error}</p>}
       </div>
 
-      <h2>Templates</h2>
-      <div className="panel" data-testid="templates-panel">
-        <p className="sub" style={{ margin: '0 0 8px' }}>
-          A template fills the recipe with a ready-made set of operations. You can then add, remove
-          or disable anything before building.
-        </p>
-        {TEMPLATES.map((t) => (
-          <div key={t.id} style={{ marginBottom: 10 }}>
-            <div className="row">
-              <strong>{t.title}</strong>
-              <button
-                onClick={() => {
-                  const name =
-                    t.id === 'cn-to-global-daily'
-                      ? (window.prompt('ROM name for About phone (leave blank to skip):', '') ?? '')
-                      : ''
-                  if (
-                    ops.length &&
-                    !window.confirm(`Replace the current recipe with "${t.title}"?`)
-                  )
-                    return
-                  set(t.build({ romName: name }))
-                }}
-                data-testid={`template-${t.id}`}
-              >
-                Use this template
-              </button>
-            </div>
-            <div className="sub" style={{ margin: '2px 0 0' }}>
-              {t.description}
-            </div>
-            <ul className="sub" style={{ margin: '4px 0 0 18px' }}>
-              {t.followUp.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-
-      <h2>System defaults and tweaks</h2>
-      <SystemTweaks
-        ops={ops}
-        localeFile={localeFile}
-        currentLocale={
-          stock.props.find((x) => x.props['ro.product.locale'])?.props['ro.product.locale'] ?? null
-        }
-        onChange={(add, removeIds) =>
-          set([
-            ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
-            ...add
-          ])
-        }
-      />
-
-      <h2>Patches (battery, notifications)</h2>
-      <div className="panel">
-        {catalog
-          .filter((p) => p.id !== BRANDING_PATCH)
-          .map((p) => {
-            const op = patchOn(p.id)
-            return (
-              <label key={p.id} style={{ display: 'block', marginBottom: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={!!op?.enabled}
-                  onChange={(e) => {
-                    if (op) upsert({ ...op, enabled: e.target.checked })
-                    else
-                      upsert({
-                        id: `patch-${p.id}`,
-                        type: 'patch',
-                        enabled: true,
-                        params: { patchSet: p.id }
-                      })
+      <Section
+        id="templates"
+        title={'Templates'}
+        chip={sectionChip('templates')}
+        defaultOpen={false}
+      >
+        <div className="panel" data-testid="templates-panel">
+          <p className="sub" style={{ margin: '0 0 8px' }}>
+            A template fills the recipe with a ready-made set of operations. You can then add,
+            remove or disable anything before building.
+          </p>
+          {TEMPLATES.map((t) => (
+            <div key={t.id} style={{ marginBottom: 10 }}>
+              <div className="row">
+                <strong>{t.title}</strong>
+                <button
+                  onClick={() => {
+                    const name =
+                      t.id === 'cn-to-global-daily'
+                        ? (window.prompt('ROM name for About phone (leave blank to skip):', '') ??
+                          '')
+                        : ''
+                    if (
+                      ops.length &&
+                      !window.confirm(`Replace the current recipe with "${t.title}"?`)
+                    )
+                      return
+                    set(t.build({ romName: name }))
                   }}
-                  data-testid={`patch-${p.id}`}
-                />{' '}
-                <strong>{p.title}</strong>
-                <div className="sub" style={{ margin: '2px 0 0 22px' }}>
-                  {p.description} <span className="mono">({p.targets.join(', ')})</span>
-                </div>
-              </label>
-            )
-          })}
-      </div>
-
-      <h2>Branding (name, boot animation, wallpapers)</h2>
-      <Branding
-        prop={find(BRANDING_PROP_OP)}
-        patch={patchOn(BRANDING_PATCH)}
-        projectPath={projectPath}
-        media={ops.find((o) => o.id === MEDIA_OP)}
-        specCard={ops.find((o) => o.id === SPEC_CARD_OP)}
-        refMaterials={materials.filter((m) => m.kind === 'reference-rom')}
-        onChange={(add, removeIds) =>
-          set([
-            ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
-            ...add
-          ])
-        }
-      />
-
-      <h2>Import from a reference ROM (PureCN)</h2>
-      <div className="panel" data-testid="import-panel">
-        <p className="sub" style={{ margin: '0 0 8px' }}>
-          Copies files from another unpacked HyperKitchen project on this computer, for example a
-          PureCN ROM built on the same base version. Owner, mode and SELinux labels are taken from
-          that ROM. Replacing stock files is refused unless both ROMs have the same base version.
-          Nothing is downloaded. A first install of a build with Google apps should format data
-          (install_and_format_data).
-        </p>
-        <div className="row">
-          {materials.some((m) => m.kind === 'reference-rom') && (
-            <select
-              value={refProject ?? ''}
-              onChange={(e) => setRefProject(e.target.value || null)}
-              data-testid="import-from-library"
-            >
-              <option value="">From library…</option>
-              {materials
-                .filter((m) => m.kind === 'reference-rom')
-                .map((m) => (
-                  <option key={m.id} value={m.path}>
-                    {m.label} ({m.meta?.romVersion ?? ''})
-                  </option>
-                ))}
-            </select>
-          )}
-          <button
-            onClick={() =>
-              void window.hk.dialog
-                .pickDir('Choose the unpacked reference project')
-                .then((d) => d && setRefProject(d))
-            }
-            data-testid="import-pick"
-          >
-            Choose project…
-          </button>
-          <span className="mono">{refProject ?? ''}</span>
-        </div>
-        {(
-          [
-            [
-              'global-compat',
-              'Global compatibility: PureCN-patched SystemUI, Settings, AOD, Home, Contacts, TeleService, SecurityCenter, package installer, overlays, device features'
-            ],
-            [
-              'gapps',
-              'Google apps: Play Store, Google, Gemini, Gboard, setup wizard, restore, sync adapters, TTS (replaces the CN Play Store stub)'
-            ],
-            ['global-apps', 'Global Xiaomi apps: Weather, Themes, Health and the style pickers'],
-            ['microsoft', 'Link to Windows']
-          ] as Array<[ImportGroup, string]>
-        ).map(([g, label]) => (
-          <label key={g} style={{ display: 'block', marginTop: 6 }}>
-            <input
-              type="checkbox"
-              checked={groups.includes(g)}
-              onChange={(e) =>
-                setGroups(e.target.checked ? [...groups, g] : groups.filter((x) => x !== g))
-              }
-              data-testid={`import-${g}`}
-            />{' '}
-            {label}
-          </label>
-        ))}
-        <div className="row" style={{ marginTop: 10 }}>
-          <button
-            disabled={!refProject || !groups.length}
-            onClick={() => {
-              const add = purecnImportOps(refProject as string, groups)
-              const ids = new Set(add.map((o) => o.id))
-              set([...ops.filter((o) => !ids.has(o.id)), ...add])
-            }}
-            data-testid="import-add"
-          >
-            Add to recipe
-          </button>
-        </div>
-        <p className="sub" style={{ margin: '8px 0 0' }}>
-          Not imported on purpose: xiaomi.eu components (XiaomiEUExt, xeu_toolbox), the boot-time
-          resetprop that reports a locked bootloader, the pm disable tweaks in a vendor rc file,
-          branding, wallpapers and themes.
-        </p>
-      </div>
-
-      <h2>Google services</h2>
-      <div className="panel">
-        <label>
-          <input
-            type="checkbox"
-            checked={!!unlock?.enabled}
-            onChange={(e) =>
-              upsert({
-                id: UNLOCK,
-                type: 'unlock-cn-gms',
-                enabled: e.target.checked,
-                params: {
-                  includeGnss: unlock?.type === 'unlock-cn-gms' ? unlock.params.includeGnss : false
-                }
-              })
-            }
-            data-testid="unlock-cn-gms"
-          />{' '}
-          Remove the CN Google services restriction (cn.google.services feature)
-        </label>
-        {unlock?.type === 'unlock-cn-gms' && (
-          <label style={{ display: 'block', marginLeft: 22 }}>
-            <input
-              type="checkbox"
-              checked={unlock.params.includeGnss}
-              onChange={(e) => upsert({ ...unlock, params: { includeGnss: e.target.checked } })}
-            />{' '}
-            Also in odm/etc/permissions/com.gnss.bds_preference.xml (PureCN does, xiaomi.eu does
-            not; the file selects BeiDou preference for GNSS)
-          </label>
-        )}
-      </div>
-
-      <h2>Replace an app with an external APK</h2>
-      <AppReplace
-        apks={apks}
-        baseSdk={baseSdk}
-        materials={materials.filter((m) => m.kind === 'app')}
-        ops={ops.filter((o) => o.type === 'app-replace')}
-        onAdd={(op) => set([...ops, op])}
-        onRemove={(id) => remove(id)}
-      />
-
-      <h2>GApps from MindTheGapps</h2>
-      <MindTheGapps
-        gappsMaterials={materials.filter((m) => m.kind === 'gapps')}
-        current={recipe.operations.find((o) => o.type === 'gapps') ?? null}
-        onApply={(add) => set([...ops.filter((o) => !add.some((a) => a.id === o.id)), ...add])}
-        onRemove={() => set(recipe.operations.filter((o) => o.type !== 'gapps'))}
-      />
-
-      <h2>Debloat</h2>
-      <div className="panel">
-        <p className="sub" style={{ margin: '0 0 6px' }}>
-          One package per line. Tick apps in the APKs tab to add them here. Core system packages are
-          refused unless an operation is forced.
-        </p>
-        <textarea
-          className="mono"
-          rows={6}
-          style={{ width: '100%' }}
-          value={userDebloat?.type === 'debloat' ? userDebloat.params.packages.join('\n') : ''}
-          onChange={(e) => {
-            const pkgs = e.target.value
-              .split('\n')
-              .map((l) => l.trim())
-              .filter(Boolean)
-            if (!pkgs.length) remove(USER_DEBLOAT)
-            else
-              upsert({
-                id: USER_DEBLOAT,
-                type: 'debloat',
-                enabled: true,
-                params: { packages: pkgs, force: false }
-              })
-          }}
-          data-testid="debloat-list"
-        />
-      </div>
-
-      <h2>build.prop</h2>
-      <div className="panel">
-        <div className="row">
-          <select value={propFile} onChange={(e) => setPropFile(e.target.value)}>
-            {stock.props.map((p) => (
-              <option key={`${p.partition}/${p.path}`} value={`${p.partition}/${p.path}`}>
-                {p.partition}/{p.path}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="key"
-            value={propKey}
-            onChange={(e) => setPropKey(e.target.value)}
-            style={{ minWidth: 200 }}
-          />
-          <input
-            type="text"
-            placeholder="value"
-            value={propValue}
-            onChange={(e) => setPropValue(e.target.value)}
-            style={{ minWidth: 160 }}
-          />
-          <button
-            disabled={!propKey.trim() || !propFile}
-            onClick={() => {
-              const cur =
-                userProps?.type === 'set-props' && userProps.params.file === propFile
-                  ? userProps.params
-                  : null
-              upsert({
-                id: USER_PROPS,
-                type: 'set-props',
-                enabled: true,
-                params: {
-                  file: propFile,
-                  set: { ...(cur?.set ?? {}), [propKey.trim()]: propValue },
-                  remove: cur?.remove ?? []
-                }
-              })
-              setPropKey('')
-              setPropValue('')
-            }}
-          >
-            Set
-          </button>
-        </div>
-        {userProps?.type === 'set-props' && (
-          <div className="mono" style={{ marginTop: 8 }}>
-            {userProps.params.file}:{' '}
-            {Object.entries(userProps.params.set)
-              .map(([k, v]) => `${k}=${v}`)
-              .join(', ')}
-          </div>
-        )}
-      </div>
-
-      <h2>Encryption</h2>
-      <div className="panel">
-        <label>
-          <input
-            type="checkbox"
-            checked={!!encryption?.enabled}
-            onChange={(e) => {
-              if (e.target.checked) {
-                const ok = window.confirm(
-                  'Disable /data encryption like PureCN?\n\nYour apps, accounts and files will be stored UNENCRYPTED: anyone with the phone and a computer can read them. The device has to be formatted (flash_all.sh wipes data). Stock and xiaomi.eu keep encryption on.'
-                )
-                if (!ok) return
-                upsert({
-                  id: ENCRYPTION,
-                  type: 'disable-encryption',
-                  enabled: true,
-                  params: { acknowledged: true }
-                })
-              } else remove(ENCRYPTION)
-            }}
-            data-testid="disable-encryption"
-          />{' '}
-          Disable /data encryption (PureCN). Off by default: stock and xiaomi.eu keep it.
-        </label>
-      </div>
-
-      <h2>All operations</h2>
-      <table data-testid="recipe-ops">
-        <thead>
-          <tr>
-            <th>On</th>
-            <th>Id</th>
-            <th>Type</th>
-            <th>Details</th>
-            <th>Order</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {ops.map((o, i) => (
-            <tr key={o.id}>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={o.enabled}
-                  onChange={(e) => upsert({ ...o, enabled: e.target.checked })}
-                />
-              </td>
-              <td className="mono">{o.id}</td>
-              <td>{o.type}</td>
-              <td className="mono">{summary(o)}</td>
-              <td style={{ whiteSpace: 'nowrap' }}>
-                <button
-                  disabled={i === 0}
-                  title="Move up"
-                  onClick={() => moveOp(o.id, -1)}
-                  data-testid={`op-up-${o.id}`}
+                  data-testid={`template-${t.id}`}
                 >
-                  ↑
-                </button>{' '}
-                <button
-                  disabled={i === ops.length - 1}
-                  title="Move down"
-                  onClick={() => moveOp(o.id, 1)}
-                  data-testid={`op-down-${o.id}`}
-                >
-                  ↓
+                  Use this template
                 </button>
-              </td>
-              <td>
-                <button onClick={() => remove(o.id)}>Remove</button>
-              </td>
-            </tr>
+              </div>
+              <div className="sub" style={{ margin: '2px 0 0' }}>
+                {t.description}
+              </div>
+              <ul className="sub" style={{ margin: '4px 0 0 18px' }}>
+                {t.followUp.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+            </div>
           ))}
-          {!ops.length && (
-            <tr>
-              <td colSpan={6} className="empty">
-                No operations. Use a template above, or add one in the sections, or edit the JSON
-                below.
-              </td>
-            </tr>
+        </div>
+      </Section>
+      <Section
+        id="system"
+        title={'System defaults and tweaks'}
+        chip={sectionChip('system')}
+        defaultOpen={true}
+      >
+        <SystemTweaks
+          ops={ops}
+          localeFile={localeFile}
+          currentLocale={
+            stock.props.find((x) => x.props['ro.product.locale'])?.props['ro.product.locale'] ??
+            null
+          }
+          onChange={(add, removeIds) =>
+            set([
+              ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
+              ...add
+            ])
+          }
+        />
+      </Section>
+      <Section
+        id="patches"
+        title={'Patches (battery, notifications)'}
+        chip={sectionChip('patches')}
+        defaultOpen={false}
+      >
+        <div className="panel">
+          {catalog
+            .filter((p) => p.id !== BRANDING_PATCH)
+            .map((p) => {
+              const op = patchOn(p.id)
+              return (
+                <label key={p.id} style={{ display: 'block', marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!op?.enabled}
+                    onChange={(e) => {
+                      if (op) upsert({ ...op, enabled: e.target.checked })
+                      else
+                        upsert({
+                          id: `patch-${p.id}`,
+                          type: 'patch',
+                          enabled: true,
+                          params: { patchSet: p.id }
+                        })
+                    }}
+                    data-testid={`patch-${p.id}`}
+                  />{' '}
+                  <strong>{p.title}</strong>
+                  <div className="sub" style={{ margin: '2px 0 0 22px' }}>
+                    {p.description} <span className="mono">({p.targets.join(', ')})</span>
+                  </div>
+                </label>
+              )
+            })}
+        </div>
+      </Section>
+      <Section
+        id="branding"
+        title={'Branding (name, boot animation, wallpapers)'}
+        chip={sectionChip('branding')}
+        defaultOpen={false}
+      >
+        <Branding
+          prop={find(BRANDING_PROP_OP)}
+          patch={patchOn(BRANDING_PATCH)}
+          projectPath={projectPath}
+          media={ops.find((o) => o.id === MEDIA_OP)}
+          specCard={ops.find((o) => o.id === SPEC_CARD_OP)}
+          refMaterials={materials.filter((m) => m.kind === 'reference-rom')}
+          onChange={(add, removeIds) =>
+            set([
+              ...ops.filter((o) => !removeIds.includes(o.id) && !add.some((a) => a.id === o.id)),
+              ...add
+            ])
+          }
+        />
+      </Section>
+      <Section
+        id="import"
+        title={'Import from a reference ROM (PureCN)'}
+        chip={sectionChip('import')}
+        defaultOpen={false}
+      >
+        <div className="panel" data-testid="import-panel">
+          <p className="sub" style={{ margin: '0 0 8px' }}>
+            Copies files from another unpacked HyperKitchen project on this computer, for example a
+            PureCN ROM built on the same base version. Owner, mode and SELinux labels are taken from
+            that ROM. Replacing stock files is refused unless both ROMs have the same base version.
+            Nothing is downloaded. A first install of a build with Google apps should format data
+            (install_and_format_data).
+          </p>
+          <div className="row">
+            {materials.some((m) => m.kind === 'reference-rom') && (
+              <select
+                value={refProject ?? ''}
+                onChange={(e) => setRefProject(e.target.value || null)}
+                data-testid="import-from-library"
+              >
+                <option value="">From library…</option>
+                {materials
+                  .filter((m) => m.kind === 'reference-rom')
+                  .map((m) => (
+                    <option key={m.id} value={m.path}>
+                      {m.label} ({m.meta?.romVersion ?? ''})
+                    </option>
+                  ))}
+              </select>
+            )}
+            <button
+              onClick={() =>
+                void window.hk.dialog
+                  .pickDir('Choose the unpacked reference project')
+                  .then((d) => d && setRefProject(d))
+              }
+              data-testid="import-pick"
+            >
+              Choose project…
+            </button>
+            <span className="mono">{refProject ?? ''}</span>
+          </div>
+          {(
+            [
+              [
+                'global-compat',
+                'Global compatibility: PureCN-patched SystemUI, Settings, AOD, Home, Contacts, TeleService, SecurityCenter, package installer, overlays, device features'
+              ],
+              [
+                'gapps',
+                'Google apps: Play Store, Google, Gemini, Gboard, setup wizard, restore, sync adapters, TTS (replaces the CN Play Store stub)'
+              ],
+              ['global-apps', 'Global Xiaomi apps: Weather, Themes, Health and the style pickers'],
+              ['microsoft', 'Link to Windows']
+            ] as Array<[ImportGroup, string]>
+          ).map(([g, label]) => (
+            <label key={g} style={{ display: 'block', marginTop: 6 }}>
+              <input
+                type="checkbox"
+                checked={groups.includes(g)}
+                onChange={(e) =>
+                  setGroups(e.target.checked ? [...groups, g] : groups.filter((x) => x !== g))
+                }
+                data-testid={`import-${g}`}
+              />{' '}
+              {label}
+            </label>
+          ))}
+          <div className="row" style={{ marginTop: 10 }}>
+            <button
+              disabled={!refProject || !groups.length}
+              onClick={() => {
+                const add = purecnImportOps(refProject as string, groups)
+                const ids = new Set(add.map((o) => o.id))
+                set([...ops.filter((o) => !ids.has(o.id)), ...add])
+              }}
+              data-testid="import-add"
+            >
+              Add to recipe
+            </button>
+          </div>
+          <p className="sub" style={{ margin: '8px 0 0' }}>
+            Not imported on purpose: xiaomi.eu components (XiaomiEUExt, xeu_toolbox), the boot-time
+            resetprop that reports a locked bootloader, the pm disable tweaks in a vendor rc file,
+            branding, wallpapers and themes.
+          </p>
+        </div>
+      </Section>
+      <Section
+        id="google"
+        title={'Google services'}
+        chip={sectionChip('google')}
+        defaultOpen={false}
+      >
+        <div className="panel">
+          <label>
+            <input
+              type="checkbox"
+              checked={!!unlock?.enabled}
+              onChange={(e) =>
+                upsert({
+                  id: UNLOCK,
+                  type: 'unlock-cn-gms',
+                  enabled: e.target.checked,
+                  params: {
+                    includeGnss:
+                      unlock?.type === 'unlock-cn-gms' ? unlock.params.includeGnss : false
+                  }
+                })
+              }
+              data-testid="unlock-cn-gms"
+            />{' '}
+            Remove the CN Google services restriction (cn.google.services feature)
+          </label>
+          {unlock?.type === 'unlock-cn-gms' && (
+            <label style={{ display: 'block', marginLeft: 22 }}>
+              <input
+                type="checkbox"
+                checked={unlock.params.includeGnss}
+                onChange={(e) => upsert({ ...unlock, params: { includeGnss: e.target.checked } })}
+              />{' '}
+              Also in odm/etc/permissions/com.gnss.bds_preference.xml (PureCN does, xiaomi.eu does
+              not; the file selects BeiDou preference for GNSS)
+            </label>
           )}
-        </tbody>
-      </table>
-      <p className="sub" style={{ margin: '6px 0 0' }}>
-        File operations (debloat, imports, GApps, media, props) run top to bottom; smali patches and
-        app mods run after them. Order matters when one operation depends on another.
-      </p>
-
-      <RawEditor recipe={recipe} onApply={(r) => setRecipe(r)} />
+        </div>
+      </Section>
+      <Section
+        id="appreplace"
+        title={'Replace an app with an external APK'}
+        chip={sectionChip('appreplace')}
+        defaultOpen={false}
+      >
+        <AppReplace
+          apks={apks}
+          baseSdk={baseSdk}
+          materials={materials.filter((m) => m.kind === 'app')}
+          ops={ops.filter((o) => o.type === 'app-replace')}
+          onAdd={(op) => set([...ops, op])}
+          onRemove={(id) => remove(id)}
+        />
+      </Section>
+      <Section
+        id="gapps"
+        title={'GApps from MindTheGapps'}
+        chip={sectionChip('gapps')}
+        defaultOpen={false}
+      >
+        <MindTheGapps
+          gappsMaterials={materials.filter((m) => m.kind === 'gapps')}
+          current={recipe.operations.find((o) => o.type === 'gapps') ?? null}
+          onApply={(add) => set([...ops.filter((o) => !add.some((a) => a.id === o.id)), ...add])}
+          onRemove={() => set(recipe.operations.filter((o) => o.type !== 'gapps'))}
+        />
+      </Section>
+      <Section id="debloat" title={'Debloat'} chip={sectionChip('debloat')} defaultOpen={false}>
+        <div className="panel">
+          <p className="sub" style={{ margin: '0 0 6px' }}>
+            One package per line. Tick apps in the APKs tab to add them here. Core system packages
+            are refused unless an operation is forced.
+          </p>
+          <textarea
+            className="mono"
+            rows={6}
+            style={{ width: '100%' }}
+            value={userDebloat?.type === 'debloat' ? userDebloat.params.packages.join('\n') : ''}
+            onChange={(e) => {
+              const pkgs = e.target.value
+                .split('\n')
+                .map((l) => l.trim())
+                .filter(Boolean)
+              if (!pkgs.length) remove(USER_DEBLOAT)
+              else
+                upsert({
+                  id: USER_DEBLOAT,
+                  type: 'debloat',
+                  enabled: true,
+                  params: { packages: pkgs, force: false }
+                })
+            }}
+            data-testid="debloat-list"
+          />
+        </div>
+      </Section>
+      <Section
+        id="buildprop"
+        title={'build.prop'}
+        chip={sectionChip('buildprop')}
+        defaultOpen={false}
+      >
+        <div className="panel">
+          <div className="row">
+            <select value={propFile} onChange={(e) => setPropFile(e.target.value)}>
+              {stock.props.map((p) => (
+                <option key={`${p.partition}/${p.path}`} value={`${p.partition}/${p.path}`}>
+                  {p.partition}/{p.path}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              placeholder="key"
+              value={propKey}
+              onChange={(e) => setPropKey(e.target.value)}
+              style={{ minWidth: 200 }}
+            />
+            <input
+              type="text"
+              placeholder="value"
+              value={propValue}
+              onChange={(e) => setPropValue(e.target.value)}
+              style={{ minWidth: 160 }}
+            />
+            <button
+              disabled={!propKey.trim() || !propFile}
+              onClick={() => {
+                const cur =
+                  userProps?.type === 'set-props' && userProps.params.file === propFile
+                    ? userProps.params
+                    : null
+                upsert({
+                  id: USER_PROPS,
+                  type: 'set-props',
+                  enabled: true,
+                  params: {
+                    file: propFile,
+                    set: { ...(cur?.set ?? {}), [propKey.trim()]: propValue },
+                    remove: cur?.remove ?? []
+                  }
+                })
+                setPropKey('')
+                setPropValue('')
+              }}
+            >
+              Set
+            </button>
+          </div>
+          {userProps?.type === 'set-props' && (
+            <div className="mono" style={{ marginTop: 8 }}>
+              {userProps.params.file}:{' '}
+              {Object.entries(userProps.params.set)
+                .map(([k, v]) => `${k}=${v}`)
+                .join(', ')}
+            </div>
+          )}
+        </div>
+      </Section>
+      <Section
+        id="encryption"
+        title={'Encryption'}
+        chip={sectionChip('encryption')}
+        defaultOpen={false}
+      >
+        <div className="panel">
+          <label>
+            <input
+              type="checkbox"
+              checked={!!encryption?.enabled}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  const ok = window.confirm(
+                    'Disable /data encryption like PureCN?\n\nYour apps, accounts and files will be stored UNENCRYPTED: anyone with the phone and a computer can read them. The device has to be formatted (flash_all.sh wipes data). Stock and xiaomi.eu keep encryption on.'
+                  )
+                  if (!ok) return
+                  upsert({
+                    id: ENCRYPTION,
+                    type: 'disable-encryption',
+                    enabled: true,
+                    params: { acknowledged: true }
+                  })
+                } else remove(ENCRYPTION)
+              }}
+              data-testid="disable-encryption"
+            />{' '}
+            Disable /data encryption (PureCN). Off by default: stock and xiaomi.eu keep it.
+          </label>
+        </div>
+      </Section>
+      <Section
+        id="operations"
+        title={'All operations'}
+        chip={sectionChip('operations')}
+        defaultOpen={false}
+      >
+        <table data-testid="recipe-ops">
+          <thead>
+            <tr>
+              <th>On</th>
+              <th>Id</th>
+              <th>Type</th>
+              <th>Details</th>
+              <th>Order</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {ops.map((o, i) => (
+              <tr key={o.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={o.enabled}
+                    onChange={(e) => upsert({ ...o, enabled: e.target.checked })}
+                  />
+                </td>
+                <td className="mono">{o.id}</td>
+                <td>{o.type}</td>
+                <td className="mono">{summary(o)}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <button
+                    disabled={i === 0}
+                    title="Move up"
+                    onClick={() => moveOp(o.id, -1)}
+                    data-testid={`op-up-${o.id}`}
+                  >
+                    ↑
+                  </button>{' '}
+                  <button
+                    disabled={i === ops.length - 1}
+                    title="Move down"
+                    onClick={() => moveOp(o.id, 1)}
+                    data-testid={`op-down-${o.id}`}
+                  >
+                    ↓
+                  </button>
+                </td>
+                <td>
+                  <button onClick={() => remove(o.id)}>Remove</button>
+                </td>
+              </tr>
+            ))}
+            {!ops.length && (
+              <tr>
+                <td colSpan={6} className="empty">
+                  No operations. Use a template above, or add one in the sections, or edit the JSON
+                  below.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        <p className="sub" style={{ margin: '6px 0 0' }}>
+          File operations (debloat, imports, GApps, media, props) run top to bottom; smali patches
+          and app mods run after them. Order matters when one operation depends on another.
+        </p>
+        <RawEditor recipe={recipe} onApply={(r) => setRecipe(r)} />{' '}
+      </Section>
     </>
   )
 }
@@ -1530,5 +1706,41 @@ function SystemTweaks({
         })}
       </div>
     </div>
+  )
+}
+
+function Section({
+  id,
+  title,
+  chip,
+  defaultOpen,
+  children
+}: {
+  id: string
+  title: string
+  chip: string | null
+  defaultOpen: boolean
+  children: React.ReactNode
+}): React.JSX.Element {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <section className={`hk-section${open ? ' open' : ''}`}>
+      <button
+        type="button"
+        className="hk-section-head"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        data-testid={`section-${id}`}
+      >
+        <span className="hk-caret" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
+        <span className="hk-section-title">{title}</span>
+        {chip && <span className="hk-chip">{chip}</span>}
+      </button>
+      <div className="hk-section-body" hidden={!open}>
+        {children}
+      </div>
+    </section>
   )
 }

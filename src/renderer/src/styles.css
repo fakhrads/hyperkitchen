@@ -354,3 +354,126 @@ th {
 .infodot-pop p:last-child {
   margin-bottom: 0;
 }
+
+/* ---- Refreshed look (2026-10): softer surfaces, depth, collapsible sections ---- */
+:root {
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(17, 24, 39, 0.04), 0 4px 16px rgba(17, 24, 39, 0.06);
+  --shadow-pop: 0 10px 30px rgba(17, 24, 39, 0.14);
+  --chip-bg: #eef1f6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.45);
+    --shadow-pop: 0 12px 34px rgba(0, 0, 0, 0.55);
+    --chip-bg: #262b33;
+  }
+}
+
+.main {
+  padding: 26px 30px;
+  max-width: 1100px;
+}
+
+h2 {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+button {
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    transform 0.02s;
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+/* Sticky recipe header with the live summary. */
+.recipe-sticky {
+  position: sticky;
+  top: -22px;
+  z-index: 20;
+  margin: -4px 0 14px;
+}
+.recipe-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.recipe-summary strong {
+  color: var(--text);
+}
+
+/* Collapsible section cards. */
+.hk-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.hk-section-head {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  font-weight: 600;
+}
+.hk-section-head:hover {
+  background: var(--bg);
+}
+.hk-section.open .hk-section-head {
+  border-bottom: 1px solid var(--border);
+}
+.hk-caret {
+  color: var(--muted);
+  font-size: 11px;
+  width: 12px;
+}
+.hk-section-title {
+  flex: 1;
+}
+.hk-chip {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--chip-bg);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.hk-section-body {
+  padding: 14px 16px;
+}
+/* The section body holds the old panels; flatten their double frame. */
+.hk-section-body > .panel {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+.infodot-pop {
+  box-shadow: var(--shadow-pop);
+}
