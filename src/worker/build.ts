@@ -312,7 +312,7 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
       const signerWarn = info.operations
         .flatMap((r) => r.warnings)
         .filter((w) => /data format|another signer|signed differently|re-?sign/i.test(w))
-      if (signerWarn.length && level !== 'required') {
+      if (signerWarn.length && level === 'not-needed') {
         level = 'first-install'
         reasons.push(
           'an app was replaced with one signed by a different key (e.g. the Play Store stub); the first install from the CN base needs a data format, later dirty flashes are fine'
