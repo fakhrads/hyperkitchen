@@ -38,6 +38,8 @@ function summary(op: Operation): string {
       return `${op.params.entries.length} region entries`
     case 'app-replace':
       return `${op.params.target} <- external APK`
+    case 'add-app':
+      return `add ${op.params.target}`
     case 'media':
       return [
         op.params.bootanimation && `boot animation (${op.params.bootanimation.kind})`,
@@ -588,7 +590,7 @@ export function RecipeTab({
       </Section>
       <Section
         id="appreplace"
-        title={'Replace an app with an external APK'}
+        title={'Replace or add an app (external APK)'}
         chip={sectionChip('appreplace')}
         defaultOpen={false}
       >
@@ -1411,6 +1413,7 @@ function MindTheGapps({
 }
 
 type ReplaceOp = Extract<Operation, { type: 'app-replace' }>
+type AddAppOp = Extract<Operation, { type: 'add-app' }>
 
 function AppReplace({
   apks,
@@ -1424,7 +1427,7 @@ function AppReplace({
   baseSdk: number | null
   materials: Material[]
   ops: Operation[]
-  onAdd: (op: ReplaceOp) => void
+  onAdd: (op: ReplaceOp | AddAppOp) => void
   onRemove: (id: string) => void
 }): React.JSX.Element {
   const [filter, setFilter] = useState('')
@@ -1548,19 +1551,41 @@ function AppReplace({
                   )}
                 </td>
                 <td>
-                  <button
-                    disabled={
-                      !target ||
-                      !m.sha256 ||
-                      (m.meta?.minSdk != null &&
-                        m.meta.minSdk !== '' &&
-                        baseSdk != null &&
-                        Number(m.meta.minSdk) > baseSdk)
-                    }
-                    onClick={() => void add(m.path, m.sha256 as string)}
-                  >
-                    Use for the selected app
-                  </button>
+                  <div className="row" style={{ gap: 4 }}>
+                    <button
+                      disabled={
+                        !target ||
+                        !m.sha256 ||
+                        (m.meta?.minSdk != null &&
+                          m.meta.minSdk !== '' &&
+                          baseSdk != null &&
+                          Number(m.meta.minSdk) > baseSdk)
+                      }
+                      title="Replace the app selected above with this APK"
+                      onClick={() => void add(m.path, m.sha256 as string)}
+                    >
+                      Replace selected
+                    </button>
+                    <button
+                      disabled={!m.sha256}
+                      title="Add this APK to the ROM as a new app"
+                      onClick={() => {
+                        const name = (m.meta?.package ?? m.label).split('.').pop() || 'App'
+                        const def = `product/app/${name}/${name}.apk`
+                        const dest = window.prompt('Add at ROM path:', def)
+                        if (!dest) return
+                        onAdd({
+                          id: `add-app-${dest.replace(/[^a-z0-9]+/gi, '-')}`,
+                          type: 'add-app',
+                          enabled: true,
+                          params: { apk: m.path, sha256: m.sha256 as string, target: dest }
+                        })
+                      }}
+                      data-testid={`appadd-${m.id}`}
+                    >
+                      Add as new app
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -110,6 +110,18 @@ export const OperationSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     id: z.string().min(1),
+    type: z.literal('add-app'),
+    enabled: z.boolean().default(true),
+    params: z.object({
+      /** External APK on the host to add to the ROM. */
+      apk: HostFile,
+      sha256: Sha256,
+      /** New .apk path in the ROM, e.g. product/app/LatinImeGoogle/LatinImeGoogle.apk. */
+      target: TreePath
+    })
+  }),
+  z.object({
+    id: z.string().min(1),
     type: z.literal('app-replace'),
     enabled: z.boolean().default(true),
     params: z.object({

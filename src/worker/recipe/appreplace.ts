@@ -137,3 +137,32 @@ export async function applyAppReplace(
     }`
   )
 }
+
+/**
+ * Add an external APK into the ROM at a new path (a Google app, a keyboard, etc.) from a file
+ * on disk, keeping its own signature. Unlike import-from-rom this needs no reference project, so
+ * the ROM does not depend on another modder's build. Refused if the target already exists (use
+ * app-replace) or the APK's minSdk exceeds the base API level.
+ */
+export async function applyAddApp(
+  ctx: OpContext,
+  op: Extract<Operation, { type: 'add-app' }>,
+  r: OperationReport
+): Promise<void> {
+  const { apk, sha256, target } = op.params
+  if (!target.endsWith('.apk')) throw new Error(`${target}: add target must be an .apk path`)
+  if (ctx.tree.exists(target)) throw new Error(`${target} already exists; use Replace an app`)
+  const data = await readFile(apk)
+  if (sha(data) !== sha256) throw new Error(`${apk} changed since it was added (sha256 differs)`)
+  const incoming = await apkFacts(apk)
+  if (!incoming.packageName) throw new Error(`${apk}: not a valid APK (no package name)`)
+  const baseSdk = await baseSdkOf(ctx)
+  if (incoming.minSdk !== null && baseSdk !== null && incoming.minSdk > baseSdk) {
+    throw new Error(
+      `${incoming.packageName} needs Android API ${incoming.minSdk} (minSdkVersion); this ROM is API ${baseSdk}. It would not run.`
+    )
+  }
+  await ctx.tree.addFile(target, data)
+  r.added.push(target)
+  ctx.log(`add-app: ${incoming.packageName} -> ${target}`)
+}

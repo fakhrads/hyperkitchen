@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { newReport } from '../../src/worker/recipe/ops'
-import { applyAppReplace } from '../../src/worker/recipe/appreplace'
+import { applyAddApp, applyAppReplace } from '../../src/worker/recipe/appreplace'
 import { WorkTree } from '../../src/worker/recipe/tree'
 import { OperationSchema, type Operation } from '../../src/shared/recipe'
 import { axml, zip } from '../fixtures/apk'
@@ -175,5 +175,46 @@ describe('app-replace', () => {
         newReport(bad)
       )
     ).rejects.toThrow(/changed since/)
+  })
+})
+
+describe('add-app', () => {
+  it('adds a new app with inherited metadata, refuses an existing target and a too-new minSdk', async () => {
+    const root = await makeTree(apk('com.x'))
+    const ext = join(tmp, 'new.apk')
+    await writeFile(ext, apk('com.google.android.inputmethod.latin'))
+    const add = (target: string, apkPath = ext): Promise<void> =>
+      (async () => {
+        const op = OperationSchema.parse({
+          id: 'a',
+          type: 'add-app',
+          params: {
+            apk: apkPath,
+            sha256: createHash('sha256')
+              .update(await readFile(apkPath))
+              .digest('hex'),
+            target
+          }
+        })
+        const tree = await WorkTree.open(root, ['product', 'system'])
+        const r = newReport(op)
+        await applyAddApp(
+          { tree, apks: [], log: () => {} },
+          op as Extract<Operation, { type: 'add-app' }>,
+          r
+        )
+        await tree.save()
+        return
+      })()
+    await add('product/app/Gboard/Gboard.apk')
+    expect(existsSync(join(root, 'product/app/Gboard/Gboard.apk'))).toBe(true)
+    const fs = await readFile(join(root, 'config/product_fs_config'), 'utf8')
+    expect(fs).toContain('product/app/Gboard/Gboard.apk 0 0 0644')
+    // Existing target is refused (that is a replace).
+    await expect(add('product/priv-app/App/App.apk')).rejects.toThrow(/already exists/)
+    // minSdk above the base API level is refused.
+    const tooNew = join(tmp, 'toonew.apk')
+    await writeFile(tooNew, apk('com.y', { minSdk: 99 }))
+    await expect(add('product/app/Y/Y.apk', tooNew)).rejects.toThrow(/API 99/)
   })
 })
