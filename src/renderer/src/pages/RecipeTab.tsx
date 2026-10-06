@@ -1605,9 +1605,7 @@ const LANG_NAMES: Record<string, string> = {
   'zh-CN': 'Chinese (Simplified)',
   'zh-TW': 'Chinese (Traditional)',
   'bo-CN': 'Tibetan',
-  'ug-CN': 'Uyghur',
-  'id-ID': 'Indonesian',
-  'ru-RU': 'Russian'
+  'ug-CN': 'Uyghur'
 }
 const langName = (code: string): string => LANG_NAMES[code] ?? code
 
@@ -1678,9 +1676,9 @@ function SystemTweaks({
       <p className="sub" style={{ margin: '4px 0 0' }}>
         framework-res.apk includes:{' '}
         {supportedLocales.length ? supportedLocales.join(', ') : '(unknown)'}. The system language
-        picker is limited to these, even though most other apps carry many more languages. To add
-        one (e.g. Indonesian) you replace framework-res.apk (and Settings.apk) with versions from a
-        global ROM that include it, via Replace an app or Import from a reference ROM.
+        picker is limited to these, even though most other apps carry many more languages. Adding a
+        language the picker does not list means replacing framework-res.apk (and Settings.apk) with
+        versions from a global ROM that include it.
       </p>
       <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
         {TWEAKS.map((t) => {
