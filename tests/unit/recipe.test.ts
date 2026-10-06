@@ -432,24 +432,15 @@ describe('import-from-rom', () => {
   })
 })
 
-describe('PureCN presets', () => {
-  it('produce valid recipes with unique ids and replace only what they import', async () => {
-    const { purecnImportOps, purecnPreset } = await import('../../src/shared/presets')
-    const ops = [
-      ...purecnPreset(),
-      ...purecnImportOps('/x/onyx-purecn', ['global-compat', 'gapps', 'global-apps', 'microsoft'])
-    ]
-    const r = RecipeSchema.parse({ schema: 1, operations: ops })
+describe('PureCN debloat/patch preset', () => {
+  it('produces a valid recipe with unique ids and keeps encryption on', async () => {
+    const { purecnPreset } = await import('../../src/shared/presets')
+    const r = RecipeSchema.parse({ schema: 1, operations: purecnPreset() })
     const ids = r.operations.map((o) => o.id)
     expect(new Set(ids).size).toBe(ids.length)
-    for (const o of r.operations) {
-      if (o.type !== 'import-from-rom') continue
-      for (const p of o.params.replace) expect(o.params.paths, `${o.id} ${p}`).toContain(p)
-    }
-    // Encryption stays on unless the user opts in.
+    // The preset is our own debloat + stock patches; it imports nothing from another ROM.
+    expect(r.operations.some((o) => o.type === 'import-from-rom')).toBe(false)
     expect(r.operations.some((o) => o.type === 'disable-encryption')).toBe(false)
-    const removed = r.operations.flatMap((o) => (o.type === 'remove-paths' ? o.params.paths : []))
-    expect(removed).toContain('product/etc/permissions/privapp-permissions-gms-cn-product.xml')
   })
 })
 

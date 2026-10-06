@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { GappsZipInfo, MediaFileInfo, PatchSetInfo } from '../../../shared/ipc'
-import {
-  mindTheGappsOps,
-  purecnImportOps,
-  TEMPLATES,
-  type ImportGroup
-} from '../../../shared/presets'
+import { mindTheGappsOps, TEMPLATES } from '../../../shared/presets'
 import { RecipeSchema, type Operation, type Recipe } from '../../../shared/recipe'
 import type { ApkInfo, Material, StockInfo } from '../../../shared/types'
 import { errorText, formatSize } from '../format'
@@ -75,8 +70,6 @@ export function RecipeTab({
   )
   const [propKey, setPropKey] = useState('')
   const [propValue, setPropValue] = useState('')
-  const [refProject, setRefProject] = useState<string | null>(null)
-  const [groups, setGroups] = useState<ImportGroup[]>(['global-compat', 'gapps'])
   const [materials, setMaterials] = useState<Material[]>([])
   const [romLocales, setRomLocales] = useState<string[]>([])
 
@@ -459,95 +452,6 @@ export function RecipeTab({
             ])
           }
         />
-      </Section>
-      <Section
-        id="import"
-        title={'Import from a reference ROM (PureCN)'}
-        chip={sectionChip('import')}
-        defaultOpen={false}
-      >
-        <div className="panel" data-testid="import-panel">
-          <p className="sub" style={{ margin: '0 0 8px' }}>
-            Copies files from another unpacked HyperKitchen project on this computer, for example a
-            PureCN ROM built on the same base version. Owner, mode and SELinux labels are taken from
-            that ROM. Replacing stock files is refused unless both ROMs have the same base version.
-            Nothing is downloaded. A first install of a build with Google apps should format data
-            (install_and_format_data).
-          </p>
-          <div className="row">
-            {materials.some((m) => m.kind === 'reference-rom') && (
-              <select
-                value={refProject ?? ''}
-                onChange={(e) => setRefProject(e.target.value || null)}
-                data-testid="import-from-library"
-              >
-                <option value="">From library…</option>
-                {materials
-                  .filter((m) => m.kind === 'reference-rom')
-                  .map((m) => (
-                    <option key={m.id} value={m.path}>
-                      {m.label} ({m.meta?.romVersion ?? ''})
-                    </option>
-                  ))}
-              </select>
-            )}
-            <button
-              onClick={() =>
-                void window.hk.dialog
-                  .pickDir('Choose the unpacked reference project')
-                  .then((d) => d && setRefProject(d))
-              }
-              data-testid="import-pick"
-            >
-              Choose project…
-            </button>
-            <span className="mono">{refProject ?? ''}</span>
-          </div>
-          {(
-            [
-              [
-                'global-compat',
-                'Global compatibility: PureCN-patched SystemUI, Settings, AOD, Home, Contacts, TeleService, SecurityCenter, package installer, overlays, device features'
-              ],
-              [
-                'gapps',
-                'Google apps: Play Store, Google, Gemini, Gboard, setup wizard, restore, sync adapters, TTS (replaces the CN Play Store stub)'
-              ],
-              ['global-apps', 'Global Xiaomi apps: Weather, Themes, Health and the style pickers'],
-              ['microsoft', 'Link to Windows']
-            ] as Array<[ImportGroup, string]>
-          ).map(([g, label]) => (
-            <label key={g} style={{ display: 'block', marginTop: 6 }}>
-              <input
-                type="checkbox"
-                checked={groups.includes(g)}
-                onChange={(e) =>
-                  setGroups(e.target.checked ? [...groups, g] : groups.filter((x) => x !== g))
-                }
-                data-testid={`import-${g}`}
-              />{' '}
-              {label}
-            </label>
-          ))}
-          <div className="row" style={{ marginTop: 10 }}>
-            <button
-              disabled={!refProject || !groups.length}
-              onClick={() => {
-                const add = purecnImportOps(refProject as string, groups)
-                const ids = new Set(add.map((o) => o.id))
-                set([...ops.filter((o) => !ids.has(o.id)), ...add])
-              }}
-              data-testid="import-add"
-            >
-              Add to recipe
-            </button>
-          </div>
-          <p className="sub" style={{ margin: '8px 0 0' }}>
-            Not imported on purpose: xiaomi.eu components (XiaomiEUExt, xeu_toolbox), the boot-time
-            resetprop that reports a locked bootloader, the pm disable tweaks in a vendor rc file,
-            branding, wallpapers and themes.
-          </p>
-        </div>
       </Section>
       <Section
         id="google"
