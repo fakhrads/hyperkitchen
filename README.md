@@ -102,16 +102,40 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   slots and every image hash before writing anything, writes the boot images to
   both slots and `super`, reads every write back, and never touches the
   recovery partition or the bootloader firmware.
-- **Recipe**: debloat, build.prop edits, CN Google services unlock and smali
-  patch sets (notifications, Greezer, PowerKeeper, Joyose, and removing the
-  recommendation ads in the package installer and the launcher), with a
-  full-cleanup preset,
-  plus an optional, default-off FLAG_SECURE patch that lets you take
-  screenshots in apps that block them (it weakens a protection those apps opt
-  into). Smali patches keep the original APK signature blocks; Android does not
-  verify APKs on system partitions, so the apps keep their identity. There is
-  no framework-wide signature-verification bypass: the kitchen keeps real
-  signatures instead.
+- **Recipe**: debloat, build.prop edits, CN Google services unlock, flagship
+  feature toggles, and the smali patch sets below, applied in one click with a
+  full-cleanup preset. Smali patches keep the original APK signature blocks;
+  Android does not verify APKs on system partitions, so the apps keep their
+  identity. There is no framework-wide signature-verification bypass: the
+  kitchen keeps real signatures instead. Each patch set is pinned to the base
+  build by sha256, so on a base update it still applies when the methods are
+  unchanged (reported as unverified) and fails loudly when they are not, rather
+  than producing a broken ROM.
+- **Smali patch sets**: each is a checkbox in the recipe. On by default in the
+  templates:
+  - *Notifications and background like global builds*: stops CN system_server
+    killing or blocking background apps (broadcasts, auto start, swipe kill,
+    jobs, alarms, full screen intents), the main cause of delayed notifications.
+  - *Stop Greezer from freezing Google Play services* and *PowerKeeper: no cloud
+    control, no GMS restriction*: keep GMS/FCM awake so push is not delayed.
+  - *Global power key and shortcut behaviour*, *Skip the MIUI DRM broadcast at
+    boot*, *Neutralise Joyose performance and thermal tuning*.
+  - *Remove the recommended-apps ads in the package installer* and *Remove the
+    launcher folder and app-drawer recommendation ads*.
+  - *Show the Google entry in Settings on a CN build*: the CN Settings only
+    adds the Google header on a global build; this unlocks just that one gate so
+    the entry appears once GApps are installed.
+
+  Off by default (opt-in):
+  - *Allow screenshots in apps that block them (FLAG_SECURE)*: weakens a
+    protection apps opt into; turn on only for your own device.
+  - *Settings: unlock the global font and ringtone entries*: best effort; reads
+    the CN theme provider, so it may stay hidden there.
+  - *ROM name in About phone*: added when you set a ROM name in Branding.
+
+  CN features that the global ROM trims are deliberately kept: the patches only
+  add the specific global bits wanted (the Google entry) and remove ads; no gate
+  is flipped in the direction that would hide a CN feature.
 - **Branding media**: replace the boot animation (a bootanimation.zip checked
   against the AOSP format, or a static one built from one logo image) and the
   home and lock wallpapers. Files are checked by content (type and size) and
