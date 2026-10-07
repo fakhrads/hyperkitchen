@@ -74,6 +74,9 @@ export function RecipeTab({
   const [propValue, setPropValue] = useState('')
   const [materials, setMaterials] = useState<Material[]>([])
   const [romLocales, setRomLocales] = useState<string[]>([])
+  // Template picker UI (replaces window.prompt/confirm, which are unreliable in Electron).
+  const [templateRomName, setTemplateRomName] = useState('')
+  const [confirmTemplate, setConfirmTemplate] = useState<string | null>(null)
 
   useEffect(() => {
     void Promise.all([
@@ -348,39 +351,56 @@ export function RecipeTab({
             A template fills the recipe with a ready-made set of operations. You can then add,
             remove or disable anything before building.
           </p>
-          {TEMPLATES.map((t) => (
-            <div key={t.id} style={{ marginBottom: 10 }}>
-              <div className="row">
-                <strong>{t.title}</strong>
-                <button
-                  onClick={() => {
-                    const name =
-                      t.id === 'cn-to-global-daily'
-                        ? (window.prompt('ROM name for About phone (leave blank to skip):', '') ??
-                          '')
-                        : ''
-                    if (
-                      ops.length &&
-                      !window.confirm(`Replace the current recipe with "${t.title}"?`)
-                    )
-                      return
-                    set(t.build({ romName: name }))
-                  }}
-                  data-testid={`template-${t.id}`}
-                >
-                  Use this template
-                </button>
+          {TEMPLATES.map((t) => {
+            const apply = (): void => {
+              set(t.build({ romName: t.id === 'cn-to-global-daily' ? templateRomName.trim() : '' }))
+              setConfirmTemplate(null)
+            }
+            return (
+              <div key={t.id} style={{ marginBottom: 10 }}>
+                <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                  <strong>{t.title}</strong>
+                  {t.id === 'cn-to-global-daily' && (
+                    <input
+                      placeholder="ROM name for About phone (optional)"
+                      value={templateRomName}
+                      onChange={(e) => setTemplateRomName(e.target.value)}
+                      style={{ minWidth: 220 }}
+                      data-testid="template-rom-name"
+                    />
+                  )}
+                  {confirmTemplate === t.id ? (
+                    <>
+                      <span className="sub">Replace the current recipe with this template?</span>
+                      <button
+                        className="primary"
+                        onClick={apply}
+                        data-testid={`template-${t.id}-confirm`}
+                      >
+                        Replace
+                      </button>
+                      <button onClick={() => setConfirmTemplate(null)}>Cancel</button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmTemplate(t.id)}
+                      data-testid={`template-${t.id}`}
+                    >
+                      Use this template
+                    </button>
+                  )}
+                </div>
+                <div className="sub" style={{ margin: '2px 0 0' }}>
+                  {t.description}
+                </div>
+                <ul className="sub" style={{ margin: '4px 0 0 18px' }}>
+                  {t.followUp.map((f) => (
+                    <li key={f}>{f}</li>
+                  ))}
+                </ul>
               </div>
-              <div className="sub" style={{ margin: '2px 0 0' }}>
-                {t.description}
-              </div>
-              <ul className="sub" style={{ margin: '4px 0 0 18px' }}>
-                {t.followUp.map((f) => (
-                  <li key={f}>{f}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </Section>
       <Section

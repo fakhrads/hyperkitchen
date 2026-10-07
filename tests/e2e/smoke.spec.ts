@@ -206,6 +206,21 @@ test('opens the app editor from the APK list', async () => {
   await expect(page.getByTestId('mod-create')).toBeDisabled()
 })
 
+test('switches between templates with the in-app picker (no native dialog)', async () => {
+  await page.getByTestId('tab-recipe').click()
+  await page.getByTestId('section-templates').click()
+  // Apply the full template through the in-app confirm (no native dialog).
+  await page.getByTestId('template-full-cleanup').click()
+  await page.getByTestId('template-full-cleanup-confirm').click()
+  await expect(page.getByTestId('recipe-ops')).toContainText('cleanup-')
+  // Switching again must work: this is the reported bug.
+  await page.getByTestId('template-cn-to-global-daily').click()
+  await page.getByTestId('template-cn-to-global-daily-confirm').click()
+  await expect(page.getByTestId('recipe-ops')).toContainText('daily-')
+  await expect(page.getByTestId('recipe-ops')).not.toContainText('cleanup-')
+  // Not saved, so the next test's fresh RecipeTab reloads the on-disk recipe.
+})
+
 test('edits the recipe as JSON and reorders operations', async () => {
   await page.getByTestId('tab-recipe').click()
   await page.getByTestId('section-operations').click()
