@@ -185,6 +185,14 @@ export interface BuildInfo {
   operations: OperationReport[]
   /** Whether a dirty flash (keep data) is safe, or a data format is needed. */
   dataFormat: { level: 'not-needed' | 'first-install' | 'required'; reasons: string[] }
+  /**
+   * Signer fingerprint of the built tree: installed package -> signing cert sha256. Two builds
+   * can be compared for dirty-flash safety: a package present in both with a different signer
+   * needs a data format (its /data is signed by the old key).
+   */
+  signers?: Record<string, string>
+  /** Whether /data encryption was turned off in this build (a change of mode needs a format). */
+  encryptionOff?: boolean
   /** Privileged permission allowlist check of the built trees. */
   privapp?: { enforced: boolean; appsChecked: number; violations: string[] }
   partitions: BuildPartition[]

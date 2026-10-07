@@ -21,6 +21,7 @@ import { RecipeSchema } from '../shared/recipe'
 import type { BuildInfo, Inventory, StockInfo, VerityMode } from '../shared/types'
 import { detectJava, MIN_JAVA_MAJOR } from './java'
 import { checkPrivapp } from './privapp'
+import { inventoryApks } from './inventory'
 import { applyRecipe } from './recipe/apply'
 import { CancelledError, throwIfCancelled, type JobContext } from './context'
 import { readErofsSuper } from './formats/erofs'
@@ -326,6 +327,29 @@ export async function build(ctx: JobContext, params: BuildParams): Promise<Build
             ? 'first install needs a data format; later dirty flashes are fine'
             : 'every install needs a data format'
       )
+    }
+
+    // Signer fingerprint: package -> signing cert sha256 of the built tree, plus the encryption
+    // mode. Two builds can then be compared (shared/dirtyflash.ts) to tell whether flashing one
+    // over the other keeps data or needs a format.
+    {
+      info.encryptionOff = recipe.operations.some(
+        (o) => o.enabled && o.type === 'disable-encryption'
+      )
+      const builtApks = await inventoryApks(
+        stock.partitions
+          .filter((p) => p.extracted)
+          .map((p) => ({ name: p.name, root: join(workDir, 'fs', p.name) })),
+        ctx.signal,
+        () => {}
+      )
+      const signers: Record<string, string> = {}
+      for (const a of builtApks) {
+        if (a.packageName && a.signerSha256 && !(a.packageName in signers)) {
+          signers[a.packageName] = a.signerSha256
+        }
+      }
+      info.signers = signers
     }
 
     // Privileged permission allowlists: an app on a system partition that requests a privileged

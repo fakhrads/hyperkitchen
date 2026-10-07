@@ -10,6 +10,7 @@ import type {
   VerityMode
 } from '../../../shared/types'
 import type { ApkUpdateResult } from '../../../shared/ipc'
+import { compareBuildFlash } from '../../../shared/dirtyflash'
 import { errorText, formatSize } from '../format'
 import { ProgressBar } from './Jobs'
 import { InfoDot } from '../InfoDot'
@@ -861,6 +862,33 @@ function BuildTab({
           </p>
         </div>
       )}
+      {(() => {
+        const done = builds.filter((b) => b.status === 'done')
+        if (done.length < 2) return null
+        const cmp = compareBuildFlash(done[1], done[0])
+        return (
+          <div
+            className="panel"
+            style={{ borderColor: cmp.dirtyFlashable ? 'var(--ok)' : 'var(--warn)' }}
+            data-testid="build-flash-compare"
+          >
+            <strong className={cmp.dirtyFlashable ? '' : 'error-text'}>
+              {cmp.dirtyFlashable ? '✓ Dirty-flash OK' : '⚠ Data format needed'}
+            </strong>{' '}
+            <span className="sub">
+              flashing <span className="mono">{done[0].id}</span> over{' '}
+              <span className="mono">{done[1].id}</span>
+            </span>
+            <p className="sub" style={{ margin: '4px 0 0' }}>
+              {cmp.dirtyFlashable
+                ? 'Same signers and encryption mode as the previous build, so you can flash it and keep data (install_upgrade).'
+                : `Flash with install_and_format_data. ${cmp.reasons.join('; ')}.`}
+              {!cmp.known &&
+                ' A build has no signer fingerprint (made before this check), so this is its own verdict, not a true comparison.'}
+            </p>
+          </div>
+        )
+      })()}
       {builds.length === 0 ? (
         <div className="empty">No builds yet.</div>
       ) : (
