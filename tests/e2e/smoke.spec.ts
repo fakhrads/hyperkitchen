@@ -157,7 +157,6 @@ test('debloats an app through the recipe and builds without it', async () => {
   await page.getByTestId('tab-apks').click()
   await page.getByTestId('apks-table').locator('input[type="checkbox"]').first().check()
   await page.getByTestId('apks-debloat').click()
-  await expect(page.getByTestId('debloat-list')).toHaveValue('com.example.test')
   await page.getByTestId('recipe-save').click()
   await expect(page.getByTestId('recipe-save')).toBeDisabled()
   const saved = JSON.parse(
@@ -177,6 +176,25 @@ test('debloats an app through the recipe and builds without it', async () => {
   await expect(builds).toHaveCount(2, { timeout: 120_000 })
   const work = join(tmp, 'projects', 'onyx unpack', 'work', 'fs', 'system', 'system', 'app', 'Test')
   expect(existsSync(work)).toBe(false)
+})
+
+test('reflects the recipe in the Debloat tab and writes a change back', async () => {
+  await page.getByTestId('tab-debloat').click()
+  // The previous test debloated com.example.test, so its row loads already ticked (read path).
+  const cb = page.getByTestId('debloat-row-com.example.test').locator('input[type="checkbox"]')
+  await expect(cb).toBeChecked()
+  // Untick and save: the debloat operation should drop it (write path).
+  await cb.uncheck()
+  await page.getByTestId('debloat-save').click()
+  await expect(page.getByTestId('debloat-save')).toHaveText('Saved')
+  const saved = JSON.parse(
+    readFileSync(join(tmp, 'projects', 'onyx unpack', 'recipe.json'), 'utf8')
+  ) as { operations: Array<{ id: string; type: string; params: { packages?: string[] } }> }
+  expect(
+    saved.operations.some(
+      (o) => o.type === 'debloat' && (o.params.packages ?? []).includes('com.example.test')
+    )
+  ).toBe(false)
 })
 
 test('opens the app editor from the APK list', async () => {

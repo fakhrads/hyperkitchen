@@ -200,6 +200,12 @@ The Doctor's "Clear quarantine" button does the same for the bundled tools.
   tracker memeosupdates.com shows the latest tracked version against the one in
   the ROM. It is unofficial, may track another region, and only reads the page.
 - The APK list is paginated.
+- **Debloat tab**: the full list of the ROM's apps with a per-app recommendation
+  from the Universal Android Debloater (the data Canta uses): ads/bloat (shown
+  first and prioritised), recommended, advanced, expert and unsafe, with a short
+  description each. An auto option ticks the ads and recommended tiers, there is
+  a search, and core/system apps are flagged (removed only with force). The
+  selection is written to the recipe as debloat operations and applied at build.
 
 Put the projects folder on a **case-sensitive** filesystem: Android trees can
 hold names that differ only in case. On macOS, an APFS (Case-sensitive) volume

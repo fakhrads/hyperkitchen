@@ -14,6 +14,7 @@ import { errorText, formatSize } from '../format'
 import { ProgressBar } from './Jobs'
 import { InfoDot } from '../InfoDot'
 import { AppsTab } from './AppsTab'
+import { DebloatTab } from './DebloatTab'
 import { RecipeTab } from './RecipeTab'
 
 // Unpack or build jobs started from this window, by project path. Survives page switches.
@@ -38,7 +39,7 @@ function androidVersion(stock: StockInfo): string {
 
 const ROM_EXTENSIONS = ['tgz', 'gz', 'tar', 'zip', 'bin', 'img']
 
-type Tab = 'partitions' | 'files' | 'props' | 'apks' | 'apps' | 'recipe' | 'build'
+type Tab = 'partitions' | 'files' | 'props' | 'apks' | 'apps' | 'debloat' | 'recipe' | 'build'
 
 export function ProjectView({
   project,
@@ -230,6 +231,7 @@ export function ProjectView({
                 ['props', 'build.prop'],
                 ['apks', 'APKs'],
                 ['apps', 'App editor'],
+                ['debloat', 'Debloat'],
                 ['recipe', 'Recipe'],
                 ['build', 'Build']
               ] as const
@@ -267,6 +269,9 @@ export function ProjectView({
               pendingTarget={pendingMod}
               onTargetConsumed={() => setPendingMod(null)}
             />
+          )}
+          {tab === 'debloat' && (
+            <DebloatTab projectPath={project.path} apks={inventory?.apks ?? []} />
           )}
           {tab === 'recipe' && (
             <RecipeTab

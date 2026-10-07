@@ -545,31 +545,11 @@ export function RecipeTab({
       </Section>
       <Section id="debloat" title={'Debloat'} chip={sectionChip('debloat')} defaultOpen={false}>
         <div className="panel">
-          <p className="sub" style={{ margin: '0 0 6px' }}>
-            One package per line. Tick apps in the APKs tab to add them here. Core system packages
-            are refused unless an operation is forced.
+          <p className="sub" style={{ margin: 0 }}>
+            App removal now lives in the <strong>Debloat</strong> tab: the full app list with
+            per-app recommendations (ads, recommended, advanced, expert, unsafe), an auto option,
+            and a search. The packages it selects appear here as debloat operations.
           </p>
-          <textarea
-            className="mono"
-            rows={6}
-            style={{ width: '100%' }}
-            value={userDebloat?.type === 'debloat' ? userDebloat.params.packages.join('\n') : ''}
-            onChange={(e) => {
-              const pkgs = e.target.value
-                .split('\n')
-                .map((l) => l.trim())
-                .filter(Boolean)
-              if (!pkgs.length) remove(USER_DEBLOAT)
-              else
-                upsert({
-                  id: USER_DEBLOAT,
-                  type: 'debloat',
-                  enabled: true,
-                  params: { packages: pkgs, force: false }
-                })
-            }}
-            data-testid="debloat-list"
-          />
         </div>
       </Section>
       <Section
